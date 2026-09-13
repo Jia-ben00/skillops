@@ -107,7 +107,8 @@ function compareVersions(a, b) {
   return 'equal';
 }
 
-const root = process.env.GITHUB_WORKSPACE || process.cwd();
+// 以进程 cwd 为仓库根（composite action 的 step cwd = workspace 根；本地测试用 cwd 指向团队仓库）
+const root = process.cwd();
 const skillsDir = path.resolve(root, skillsArg);
 const registryPath = path.resolve(root, registryArg);
 

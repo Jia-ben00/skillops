@@ -154,6 +154,17 @@ async function main() {
     return;
   }
 
+  if (flags.command === 'sync') {
+    await runSync(flags);
+    return;
+  }
+
+  if (flags.command === 'mcp') {
+    const { startMcpServer } = await import('./mcp.js');
+    startMcpServer();
+    return;
+  }
+
   const { roots, skills: scanned } = scanFromArgs({
     cwd,
     config,
@@ -239,17 +250,6 @@ async function main() {
       console.log('');
       console.log('以上为预览（dry-run），加 --apply 才会真正执行。');
     }
-    return;
-  }
-
-  if (flags.command === 'sync') {
-    await runSync(flags);
-    return;
-  }
-
-  if (flags.command === 'mcp') {
-    const { startMcpServer } = await import('./mcp.js');
-    startMcpServer();
     return;
   }
 
