@@ -160,7 +160,7 @@ export function buildReport(analysis, opts = {}) {
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
     <div>
       <h1 style="font-size:22px;margin:0 0 4px;">${esc(title)}</h1>
-      <div style="font-size:12px;color:#64748b;">生成时间 ${esc(new Date(analysis.generatedAt).toLocaleString('zh-CN'))} · 工具 v${esc(opts.version || '0.3.0')} · 范围：${esc(scope)}</div>
+      <div style="font-size:12px;color:#64748b;">生成时间 ${esc(new Date(analysis.generatedAt).toLocaleString('zh-CN'))} · 工具 v${esc(opts.version || '0.4.0')} · 范围：${esc(scope)}</div>
     </div>
     ${gradeBadge(analysis.grade, analysis.score)}
   </div>

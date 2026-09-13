@@ -10,6 +10,7 @@ SkillOps 是一个面向 Claude Code / Codex / Cursor / OpenCode 等 AI 编程�
 - **报告（report）**：生成自包含的单文件 HTML 可视化报告，可离线打开、可分享。
 - **治理（fix）**：给出停用 / 精简 / 合并 / 更新 / 复核建议；默认 dry-run 预览，`--apply` 才真正落盘（停用 = 重命名为 `*.disabled`，可逆）。
 - **团队同步（sync）**：以 Git 仓库为单一事实源，`push` 上收技能、`pull` 下发到全员、`gate` 做版本门禁（版本落后即拦截），让团队技能版本收敛。
+- **技能市场（market）**：扫描公开 GitHub 仓库发现技能（SKILL.md / .mdc），一键安装到本地；订阅仓库后 `market update` 增量拉取更新（sha256 比对，dry-run 默认）。
 - **MCP 接入**：`skillops mcp` 以 MCP 服务器模式运行，Claude Desktop / Cursor 等任意 MCP 客户端可直接调用体检 / 评测 / 报告工具。
 - **多格式统一**：同时识别 Agent Skills（`SKILL.md`）与 Cursor Rules（`.mdc`），统一为同一模型体检、评分、治理。
 
@@ -46,6 +47,7 @@ npx skillops doctor
 | `bench` | 运行 SkillBench 基准评测（basic/docs/codegen） | `skillops bench --suite codegen --json` |
 | `fix` | 治理：默认 dry-run 预览，`--apply` 落盘 | `skillops fix --apply --target my-skill` |
 | `sync` | 团队同步：init/push/register/gate/pull | `skillops sync gate .team --local .` |
+| `market` | 技能市场：search/install/subscribe/update/list | `skillops market install owner/repo --apply` |
 | `mcp` | 以 MCP 服务器模式运行（供 AI 客户端调用） | `skillops mcp` |
 | `serve` | 团队版控制台（托管报告 + 体检 API） | `skillops serve --port 3000` |
 | `init` | 生成 `.skillopsrc.json` 配置模板 | `skillops init` |
@@ -108,6 +110,30 @@ skillops bench --suite basic --json
 skillops bench --suite codegen --json
 skillops bench --agent "claude -p" --suite codegen   # 实验性：外部 Agent 实测
 ```
+
+## 技能市场（market）
+
+零依赖扫描公开 GitHub 仓库、安装技能、订阅更新（仅用 Node 内置 fetch；未认证限流约 10 次/分，设置 `GITHUB_TOKEN` 可提升）：
+
+```bash
+# 1. 搜索仓库并探测其中技能（默认取 star 最高的前 3 个仓库探测）
+skillops market search "skills in:name,description"
+skillops market search "topic:claude-code"
+
+# 2. 安装（默认 dry-run，--apply 落盘到 ~/.claude/skills；--target 可指定目录）
+skillops market install owner/repo --apply
+skillops market install owner/repo --skill 1 --target ~/.cursor/skills --apply
+
+# 3. 订阅源更新：记录仓库+技能+安装目录，之后增量拉取（sha256 比对，无变化不写盘）
+skillops market subscribe owner/repo --target ~/.claude/skills
+skillops market update          # dry-run 预览
+skillops market update --apply  # 真正拉取变更
+skillops market list
+```
+
+- 发现机制：仓库搜索 API → git trees API 一次拿全树 → 聚合技能目录（含 SKILL.md 与 .mdc）→ 下载（raw 优先，失败自动回退 contents API）。
+- 安装/更新均有 sha256 校验；订阅文件存于 `~/.skillops/subscriptions.json`。
+- 网络提示：未认证 GitHub API 限流约 10 次/分，设置 `GITHUB_TOKEN` 可提升；公司代理/自签证书环境下 Node fetch 可能失败，可用 `node --use-system-ca src/cli.js`（Node 22+）或 `NODE_TLS_REJECT_UNAUTHORIZED=0` 绕过。
 
 ## MCP 接入
 
@@ -204,12 +230,13 @@ skillops/
 - [x] MCP 接入（doctor / bench / report 三个工具，任意 MCP 客户端可调用）
 - [x] 官方 Agent Skills 规范适配（SKILL.md / .mdc 统一模型 + `--tool` 过滤）
 - [x] CI 集成：GitHub Action 自动跑 gate（`skill-gate` composite action + 自带 CI workflow）
+- [x] 技能市场：扫描公开仓库（search）+ 安装（install）+ 订阅源更新（subscribe/update）
 
 ### 下一步（Ideas）
 
-- [ ] 技能市场：从公开仓库扫描下载 / 订阅源更新
 - [ ] 更多 SkillBench 套件（security / i18n / 长文档）
 - [ ] Web 工作台（报告 + 治理操作界面）
+- [ ] 市场搜索接入 GitHub 话题/自建索引，提升发现质量
 
 ## 开发与测试
 

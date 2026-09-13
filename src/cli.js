@@ -12,7 +12,7 @@ import { plan, execute } from './fix.js';
 import { startServer } from './server.js';
 import { estimateTokens } from './util.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 
 const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
 
@@ -22,6 +22,7 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
   skillops bench [--suite <id>]      运行 SkillBench 基准评测（默认套件 basic）
   skillops fix [--apply] [--target <n>]  治理：默认 dry-run 预览，--apply 才落盘
   skillops sync <init|push|register|gate|pull> <teamRepo>  团队策略：Git 单一事实源 + 版本门禁
+  skillops market <search|install|subscribe|update|list>  技能市场：扫描公开仓库 / 订阅源更新
   skillops mcp                     以 MCP 服务器模式运行（供 AI 客户端调用）
   skillops serve [--port <n>]      启动团队版控制台（托管报告 + 体检 API）
   skillops init                      生成 .skillopsrc.json 配置模板
@@ -38,6 +39,9 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
   --to <dir>            sync pull 的本地目标目录
   --local <dir>         sync gate 的本地技能目录
   --strict             sync gate 严格模式：未收录/未安装也计为错误（CI 用）
+  --limit <n>          market search 返回仓库数（默认 10，探测前 3）
+  --skill <n>          market 选中仓库内的技能序号（默认 0）
+  --force              market install 覆盖已存在技能
   --config <path>       配置文件路径（默认 ./.skillopsrc.json）
   --dry-run / --apply   fix 的预览 / 执行开关（默认 dry-run）
   --target <name>       fix 只处理指定技能
@@ -53,7 +57,7 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
 `;
 
 function parseArgs(argv) {
-  const flags = { dirs: [], add: [], json: false, output: null, suite: null, agent: null, taskTemplate: null, dryRun: false, apply: false, target: null, config: null, port: null, version: false, help: false, noDefaults: false, tool: null, from: null, to: null, local: null, strict: false };
+  const flags = { dirs: [], add: [], json: false, output: null, suite: null, agent: null, taskTemplate: null, dryRun: false, apply: false, target: null, config: null, port: null, version: false, help: false, noDefaults: false, tool: null, from: null, to: null, local: null, strict: false, limit: 10, skill: 0, force: false };
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -74,6 +78,9 @@ function parseArgs(argv) {
     else if (a === '--to') flags.to = argv[++i];
     else if (a === '--local') flags.local = argv[++i];
     else if (a === '--strict') flags.strict = true;
+    else if (a === '--limit') flags.limit = Number(argv[++i]) || 10;
+    else if (a === '--skill') flags.skill = Number(argv[++i]) || 0;
+    else if (a === '--force') flags.force = true;
     else if (a === '--port') flags.port = argv[++i];
     else if (a === '--add') flags.add.push(argv[++i]);
     else if (a.startsWith('-')) throw new Error(`未知选项: ${a}`);
@@ -162,6 +169,11 @@ async function main() {
   if (flags.command === 'mcp') {
     const { startMcpServer } = await import('./mcp.js');
     startMcpServer();
+    return;
+  }
+
+  if (flags.command === 'market') {
+    await runMarket(flags);
     return;
   }
 
@@ -315,7 +327,142 @@ async function runSync(flags) {
   }
 }
 
+async function runMarket(flags) {
+  const [sub, arg] = flags.dirs;
+  const market = await import('./market.js');
+  const { ghFetch, searchRepos, discoverSkills, downloadSkill, subscribe, updateAll, loadSubscriptions, parseRepoArg } = market;
+  const fetchImpl = globalThis.fetch;
+  const home = await import('node:os').then((o) => o.homedir());
+  const target = flags.target || path.join(home, '.claude', 'skills');
+
+  switch (sub) {
+    case 'search': {
+      const query = arg || 'skills in:name,description';
+      console.log(`搜索公开仓库: ${query}`);
+      const repos = await searchRepos(fetchImpl, query, { limit: flags.limit });
+      if (!repos.length) {
+        console.log('未找到匹配仓库。');
+        return;
+      }
+      console.log(printTable(
+        ['仓库', '⭐', '默认分支', '描述'],
+        repos.map((r) => [r.fullName, r.stars, r.defaultBranch, r.description]),
+      ));
+      console.log('');
+      console.log(`探测前 ${Math.min(3, repos.length)} 个仓库中的技能...`);
+      for (const r of repos.slice(0, 3)) {
+        try {
+          const d = await discoverSkills(fetchImpl, r.fullName);
+          console.log(`\n${r.fullName}（${d.skills.length} 个技能）: ${d.skills.map((s, i) => `[${i}] ${s.name} (${s.format})`).join(' · ')}`);
+        } catch (e) {
+          console.log(`\n${r.fullName}: ${e.message}`);
+        }
+      }
+      console.log('\n安装: skillops market install <owner/repo> [--skill <n>] [--target <dir>] [--apply]');
+      return;
+    }
+    case 'install': {
+      if (!arg) {
+        console.error('用法: skillops market install <owner/repo> [--skill <n>] [--target <dir>] [--apply]');
+        process.exitCode = 1;
+        return;
+      }
+      const repo = parseRepoArg(arg);
+      const d = await discoverSkills(fetchImpl, `${repo.owner}/${repo.repo}`);
+      if (!d.skills.length) {
+        console.error('该仓库未发现技能（无 SKILL.md / .mdc）。');
+        process.exitCode = 1;
+        return;
+      }
+      const skill = d.skills[flags.skill];
+      if (!skill) {
+        console.error(`技能序号 ${flags.skill} 不存在，可用 0-${d.skills.length - 1}。`);
+        process.exitCode = 1;
+        return;
+      }
+      const dest = path.join(target, skill.name);
+      if (fs.existsSync(dest) && !flags.force) {
+        console.error(`目标已存在: ${dest}（加 --force 覆盖，或先 sync gate 检查版本）`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(`下载 ${d.owner}/${d.repo}@${d.branch} → ${skill.name} (${skill.files.length} 个文件)`);
+      const files = await downloadSkill(fetchImpl, d, flags.skill, { onProgress: (p) => console.log(`  · ${p}`) });
+      if (!flags.apply) {
+        console.log(`\n[dry-run] 将安装到 ${dest}，加 --apply 落盘。`);
+        return;
+      }
+      fs.mkdirSync(dest, { recursive: true });
+      for (const f of files.files) {
+        const rel = f.relPath.replace(`${skill.root}${skill.root ? '/' : ''}`, '');
+        const p = path.join(dest, rel);
+        fs.mkdirSync(path.dirname(p), { recursive: true });
+        fs.writeFileSync(p, f.content);
+      }
+      console.log(`\n已安装到 ${dest}（${files.files.length} 个文件，sha256 校验通过）`);
+      return;
+    }
+    case 'subscribe': {
+      if (!arg) {
+        console.error('用法: skillops market subscribe <owner/repo> [--skill <n>] [--target <dir>]');
+        process.exitCode = 1;
+        return;
+      }
+      const repo = parseRepoArg(arg);
+      const d = await discoverSkills(fetchImpl, `${repo.owner}/${repo.repo}`);
+      if (!d.skills.length) {
+        console.error('该仓库未发现技能。');
+        process.exitCode = 1;
+        return;
+      }
+      if (!d.skills[flags.skill]) {
+        console.error(`技能序号 ${flags.skill} 不存在，可用 0-${d.skills.length - 1}。`);
+        process.exitCode = 1;
+        return;
+      }
+      const { entry, added } = subscribe(fetchImpl, `${repo.owner}/${repo.repo}`, { skillIndex: flags.skill, target });
+      console.log(`${added ? '已订阅' : '订阅已更新'}: ${entry.repo} [${flags.skill}] → ${target}`);
+      console.log('之后运行 skillops market update [--apply] 拉取更新。');
+      return;
+    }
+    case 'update': {
+      const results = await updateAll(fetchImpl, { apply: flags.apply });
+      for (const r of results) {
+        if (r.status === 'error') {
+          console.log(`  ✗ ${r.repo} [${r.skillIndex}]: ${r.message}`);
+          continue;
+        }
+        const detail = r.changed.length ? r.changed.map((c) => `${c.action} ${c.relPath}`).join('; ') : '无变化';
+        console.log(`  ${r.changed.length ? '✓' : 'i'} ${r.repo} [${r.skillIndex}] ${r.skill}: ${detail}`);
+      }
+      if (!flags.apply) console.log('\n以上为预览（dry-run），加 --apply 才会真正写入。');
+      return;
+    }
+    case 'list': {
+      const list = loadSubscriptions();
+      if (!list.length) {
+        console.log('暂无订阅。用 skillops market subscribe <owner/repo> 添加。');
+        return;
+      }
+      console.log(printTable(
+        ['仓库', '技能#', '安装目录', '上次更新'],
+        list.map((s) => [s.repo, s.skillIndex, s.target, s.lastUpdate || '—']),
+      ));
+      return;
+    }
+    default:
+      console.error('用法: skillops market <search|install|subscribe|update|list>');
+      process.exitCode = 1;
+  }
+}
+
 main().catch((e) => {
   console.error(`SkillOps 错误: ${e.message}`);
+  if (/fetch failed|UNABLE_TO_VERIFY|ECONNREFUSED|ENOTFOUND|socket hang up|502|timed out/i.test(e.message || '')) {
+    console.error('网络请求失败。若在公司代理 / 自签证书环境，可尝试：');
+    console.error('  PowerShell:  $env:NODE_TLS_REJECT_UNAUTHORIZED="0"  后再运行 market 命令');
+    console.error('  Node 22+:    node --use-system-ca src/cli.js market ...');
+    console.error('或设置 GITHUB_TOKEN 提升 API 速率限制。');
+  }
   process.exitCode = 1;
 });

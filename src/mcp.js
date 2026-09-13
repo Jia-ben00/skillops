@@ -10,7 +10,7 @@ import { loadSuite } from './bench/suite.js';
 import { runSuite } from './bench/runner.js';
 import { buildReport } from './report.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 const NAME = 'skillops';
 
 const TOOLS = [

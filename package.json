@@ -1,7 +1,7 @@
 {
   "name": "skillops",
-  "version": "0.3.0",
-  "description": "AI 编程 Skill 的治理与评测平台：体检（上下文税/触发冲突/重复/过期/安全）→ SkillBench 基准评测 → 可视化报告 → 团队同步/版本门禁 → MCP 接入 → 一键治理",
+  "version": "0.4.0",
+  "description": "AI 编程 Skill 的治理与评测平台：体检（上下文税/触发冲突/重复/过期/安全）→ SkillBench 基准评测 → 可视化报告 → 团队同步/版本门禁 → 技能市场 → MCP 接入 → 一键治理",
   "type": "module",
   "bin": {
     "skillops": "./src/cli.js"
