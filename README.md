@@ -197,6 +197,43 @@ skillops serve ~/.claude/skills --port 3000
 
 API（同时兼容 Docker 部署）：`GET /api/health` · `GET /api/skills?dir=` · `POST /api/doctor` · `POST /api/fix/plan` · `POST /api/fix/apply` · `GET /api/report?dir=` · `GET /reports/*`。
 
+## 真实案例自举
+
+不拿合成数据自夸——用真实公开仓库跑一遍：从三个 GitHub 仓库安装 10 个真实技能并体检（2026-09 快照，复现命令见下）：
+
+```
+SkillOps 体检完成 — 综合分 97（A）
+技能 10 个 | 常驻税 1039 tok/轮 | 触发税 28544 tok/次 | 问题 error=0 warn=2 info=5
+```
+
+| 技能 | 来源 | 分 | 级 | 常驻税 | 触发税 | 行数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| code-review | mattpocock/skills | 100 | A | 108 | 1546 | 88 |
+| diagnosing-bugs | mattpocock/skills | 100 | A | 43 | 2115 | 139 |
+| pdf | anthropics/skills | 100 | A | 111 | 1956 | 315 |
+| systematic-debugging | obra/superpowers | 100 | A | 28 | 2326 | 284 |
+| test-driven-development | obra/superpowers | 100 | A | 26 | 2217 | 321 |
+| academy-guide | anthropics/skills | 97 | A | 4 | 1685 | 148 |
+| docx | anthropics/skills | 97 | A | 210 | 1508 | 92 |
+| xlsx | anthropics/skills | 97 | A | 239 | 1900 | 100 |
+| pptx | anthropics/skills | 89 | B | 186 | 5014 | 239 |
+| skill-creator | anthropics/skills | 89 | B | 84 | 8277 | 486 |
+
+真实发现（这类问题只在真实数据上才看得见）：
+
+- **pptx / skill-creator 触发税超预算**（5014 / 8277 tokens > 4000）：官方大型技能把模板全量写进 SKILL.md，调用时一次性加载——渐进式披露不足是真实世界最常见的烧 token 原因。
+- **academy-guide 指令冲突**：同时包含多组"必须/禁止"指令，可能互相打架。
+
+完整报告见 `examples/skillops-real-report.html`（已随仓库提交）。复现：
+
+```bash
+node scripts/bootstrap-real-skills.js   # git clone 三个公开仓库，安装精选 10 个技能到 examples/.cache（不提交）
+node src/cli.js doctor examples/.cache/real-skills --no-defaults
+node src/cli.js report examples/.cache/real-skills --no-defaults -o examples/skillops-real-report.html
+```
+
+> 技能文件本身不提交（尊重第三方 license），仓库只保留分析报告与复现脚本。
+
 ## 团队部署（Docker 一键）
 
 个人版零依赖；团队版用 Docker Compose 一键起控制台：

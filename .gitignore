@@ -5,3 +5,5 @@ node_modules/
 /reports/
 /skillops-report.html
 /tmp/
+
+examples/.cache/
