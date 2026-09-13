@@ -12,7 +12,7 @@ import { plan, execute } from './fix.js';
 import { startServer } from './server.js';
 import { estimateTokens } from './util.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
 
@@ -21,7 +21,9 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
   skillops report [目录...]          生成自包含 HTML 可视化报告（默认 skillops-report.html）
   skillops bench [--suite <id>]      运行 SkillBench 基准评测（默认套件 basic）
   skillops fix [--apply] [--target <n>]  治理：默认 dry-run 预览，--apply 才落盘
-  skillops serve [--port <n>]        启动团队版控制台（托管报告 + 体检 API）
+  skillops sync <init|push|register|gate|pull> <teamRepo>  团队策略：Git 单一事实源 + 版本门禁
+  skillops mcp                     以 MCP 服务器模式运行（供 AI 客户端调用）
+  skillops serve [--port <n>]      启动团队版控制台（托管报告 + 体检 API）
   skillops init                      生成 .skillopsrc.json 配置模板
 
 选项:
@@ -31,6 +33,10 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
   --agent <cmd>         SkillBench 实验模式：用外部 Agent CLI 实测（如 "claude -p"）
   --add <dir>           追加扫描目录（可重复）
   --no-defaults         只扫描显式指定目录（不探测 ~/.claude/skills 等默认位置）
+  --tool <name>         只体检指定工具格式：claude/codex（SKILL.md）或 cursor（.mdc），默认全部
+  --from <dir>          sync push 的本地来源目录
+  --to <dir>            sync pull 的本地目标目录
+  --local <dir>         sync gate 的本地技能目录
   --config <path>       配置文件路径（默认 ./.skillopsrc.json）
   --dry-run / --apply   fix 的预览 / 执行开关（默认 dry-run）
   --target <name>       fix 只处理指定技能
@@ -46,7 +52,7 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
 `;
 
 function parseArgs(argv) {
-  const flags = { dirs: [], add: [], json: false, output: null, suite: null, agent: null, taskTemplate: null, dryRun: false, apply: false, target: null, config: null, port: null, version: false, help: false, noDefaults: false };
+  const flags = { dirs: [], add: [], json: false, output: null, suite: null, agent: null, taskTemplate: null, dryRun: false, apply: false, target: null, config: null, port: null, version: false, help: false, noDefaults: false, tool: null, from: null, to: null, local: null };
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -62,6 +68,10 @@ function parseArgs(argv) {
     else if (a === '--target') flags.target = argv[++i];
     else if (a === '--config') flags.config = argv[++i];
     else if (a === '--no-defaults') flags.noDefaults = true;
+    else if (a === '--tool') flags.tool = argv[++i];
+    else if (a === '--from') flags.from = argv[++i];
+    else if (a === '--to') flags.to = argv[++i];
+    else if (a === '--local') flags.local = argv[++i];
     else if (a === '--port') flags.port = argv[++i];
     else if (a === '--add') flags.add.push(argv[++i]);
     else if (a.startsWith('-')) throw new Error(`未知选项: ${a}`);
@@ -142,12 +152,23 @@ async function main() {
     return;
   }
 
-  const { roots, skills } = scanFromArgs({
+  const { roots, skills: scanned } = scanFromArgs({
     cwd,
     config,
     extraDirs: flags.dirs.concat(flags.add),
     noDefaults: flags.noDefaults,
   });
+  // --tool 过滤：claude/codex → agent-skill（SKILL.md）；cursor → cursor-rule（.mdc）
+  let skills = scanned;
+  if (flags.tool) {
+    const fmt = flags.tool === 'cursor' ? 'cursor-rule' : 'agent-skill';
+    skills = scanned.filter((s) => s.format === fmt);
+    if (!skills.length) {
+      console.error(`--tool ${flags.tool} 下未发现技能（期望格式: ${fmt}）`);
+      process.exitCode = 1;
+      return;
+    }
+  }
   if (!skills.length) {
     console.error('未发现任何技能（无 SKILL.md）。可指定目录: skillops doctor <dir>，或用 --add <dir>');
     process.exitCode = 1;
@@ -219,7 +240,77 @@ async function main() {
     return;
   }
 
+  if (flags.command === 'sync') {
+    await runSync(flags);
+    return;
+  }
+
+  if (flags.command === 'mcp') {
+    const { startMcpServer } = await import('./mcp.js');
+    startMcpServer();
+    return;
+  }
+
   console.log(HELP);
+}
+
+async function runSync(flags) {
+  const [sub, repo] = flags.dirs;
+  if (!sub || !repo) {
+    console.error('用法: skillops sync <init|push|register|gate|pull> <teamRepo>');
+    process.exitCode = 1;
+    return;
+  }
+  const { initTeamRepo, pushSkills, buildRegistry, gateSkills, pullSkills } = await import('./sync.js');
+  const regPath = (r) => path.join(r, '.skillops', 'registry.json');
+  switch (sub) {
+    case 'init': {
+      const created = initTeamRepo(repo);
+      console.log(`团队仓库已初始化: ${repo}`);
+      for (const f of created) console.log(`  ✓ ${f}`);
+      break;
+    }
+    case 'push': {
+      const from = flags.from || process.cwd();
+      const { changed, registryWritten } = pushSkills(repo, from, { apply: flags.apply });
+      for (const c of changed) console.log(`  ${c.result}`);
+      if (registryWritten) console.log('  ✓ registry.json 已更新');
+      if (!flags.apply) console.log('\n以上为预览（dry-run），加 --apply 才会真正写入。');
+      break;
+    }
+    case 'register': {
+      const reg = buildRegistry(repo);
+      const count = Object.keys(reg.skills).length;
+      if (!flags.apply) {
+        console.log(`[dry-run] 将更新 registry.json（${count} 个技能）`);
+      } else {
+        fs.writeFileSync(regPath(repo), JSON.stringify(reg, null, 2) + '\n', 'utf8');
+        console.log(`registry.json 已更新（${count} 个技能）`);
+      }
+      break;
+    }
+    case 'gate': {
+      const local = flags.local || process.cwd();
+      const { results, passed } = gateSkills(repo, local);
+      for (const r of results) {
+        const mark = r.level === 'error' ? '✗' : r.level === 'ok' ? '✓' : 'i';
+        console.log(`  ${mark} [${r.status}] ${r.name}: ${r.message}`);
+      }
+      console.log(passed ? '\n门禁通过 ✓' : '\n门禁未通过 ✗（存在版本落后）');
+      if (!passed) process.exitCode = 1;
+      break;
+    }
+    case 'pull': {
+      const to = flags.to || process.cwd();
+      const { changed } = pullSkills(repo, to, { apply: flags.apply });
+      for (const c of changed) console.log(`  ${c.result}`);
+      if (!flags.apply) console.log('\n以上为预览（dry-run），加 --apply 才会真正写入。');
+      break;
+    }
+    default:
+      console.error(`未知 sync 子命令: ${sub}`);
+      process.exitCode = 1;
+  }
 }
 
 main().catch((e) => {

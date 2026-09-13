@@ -27,14 +27,39 @@ const CHECK_IMPLS = {
     const hasManifest = skill.files.some((f) => /(^|\\)(package\.json|pyproject\.toml|requirements\.txt)$/i.test(f.rel));
     return skill.hasLicense || skill.hasVersion || isGitRepo(skill.dir) || hasManifest;
   },
+  trigger_keywords(skill) {
+    return /(当用户|用户要求|用于|处理|生成|检查|修复|创建|使用|when|use|handle|generate|create|review|fix|check)/i.test(
+      `${skill.name} ${skill.description}`,
+    );
+  },
+  has_example(skill) {
+    return /(示例|举例|例如|例子|```|example|e\.g\.)/i.test(skill.body);
+  },
+  has_references(skill) {
+    return skill.files.length > 1;
+  },
+  has_allowed_tools(skill) {
+    return Boolean(skill.allowedTools);
+  },
+  mentions_language_stack(skill) {
+    return /(typescript|javascript|python|golang|rust|java|react|vue|node|django|fastapi|go\b|\.py\b|\.ts\b)/i.test(
+      `${skill.description} ${skill.body}`,
+    );
+  },
+  mentions_verification(skill) {
+    return /(验证|测试|校验|回归|verify|test|check|validate|audit)/i.test(skill.body);
+  },
+  has_error_handling(skill) {
+    return /(失败|错误|异常|回滚|error|fail|exception|rollback)/i.test(skill.body);
+  },
 };
 
 /** 运行 Agent 实测（实验性）：用外部编码 Agent CLI 让模型读技能并回答固定问题 */
-function runAgentProbe(agentCmd, skill, taskTemplate) {
+function runAgentProbe(agentCmd, skill, taskTemplate, suite) {
   if (!agentCmd) return null;
   const parts = agentCmd.split(/\s+/).filter(Boolean);
   const [cmd, ...args] = parts;
-  const prompt = (taskTemplate || '请阅读 {dir}/SKILL.md，用不超过 3 句话说明：1) 它最适合什么任务；2) 潜在风险或与其他技能的冲突。').replaceAll('{dir}', skill.dir);
+  const prompt = (taskTemplate || suite?.agentTask || '请阅读 {dir}/SKILL.md，用不超过 3 句话说明：1) 它最适合什么任务；2) 潜在风险或与其他技能的冲突。').replaceAll('{dir}', skill.dir);
   const started = Date.now();
   let r;
   try {
@@ -68,7 +93,7 @@ export function runSuite(skills, suite, opts = {}) {
       return { id: c.id, name: c.name, pass };
     });
     const score = Math.round((passed / totalWeight) * 100);
-    const agent = runAgentProbe(opts.agent, skill, opts.taskTemplate);
+    const agent = runAgentProbe(opts.agent, skill, opts.taskTemplate, suite);
     return {
       skill: skill.name,
       dir: skill.dir,

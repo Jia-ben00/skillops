@@ -1,0 +1,16 @@
+{
+  "id": "codegen",
+  "name": "SkillBench · 代码生成套件",
+  "description": "面向代码生成/重构/测试类技能的静态质量门禁。权重合计 100。",
+  "agentTask": "请阅读 {dir}/SKILL.md，说明：1) 面向什么语言/技术栈；2) 生成后如何验证；3) 出错时如何处理。",
+  "checks": [
+    { "id": "frontmatter_valid", "name": "frontmatter 有效且含 name", "weight": 15 },
+    { "id": "has_description", "name": "有 description", "weight": 10 },
+    { "id": "desc_within_limit", "name": "描述 ≤ 1536 字符", "weight": 10 },
+    { "id": "lines_within_limit", "name": "SKILL.md ≤ 500 行", "weight": 15 },
+    { "id": "mentions_language_stack", "name": "明确语言/技术栈", "weight": 15 },
+    { "id": "mentions_verification", "name": "包含验证/测试步骤", "weight": 15 },
+    { "id": "has_example", "name": "包含使用示例或代码块", "weight": 10 },
+    { "id": "no_inline_big_scripts", "name": "内联脚本 token ≤ 3000", "weight": 10 }
+  ]
+}

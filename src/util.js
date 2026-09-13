@@ -73,10 +73,15 @@ export function mtimeMs(p) {
   }
 }
 
-/** 目录是否包含 SKILL.md（技能目录判定） */
+/** 目录是否为技能目录（含 SKILL.md 或 *.mdc） */
 export function isSkillDir(dir) {
   try {
-    return fs.statSync(path.join(dir, 'SKILL.md')).isFile();
+    if (fs.statSync(path.join(dir, 'SKILL.md')).isFile()) return true;
+  } catch {
+    /* continue */
+  }
+  try {
+    return fs.readdirSync(dir).some((f) => f.endsWith('.mdc') && !f.startsWith('.'));
   } catch {
     return false;
   }

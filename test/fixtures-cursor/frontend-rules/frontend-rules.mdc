@@ -1,0 +1,13 @@
+---
+description: 处理前端项目的代码风格与可访问性检查，规范 React 组件的写法与 ARIA 使用
+globs: "**/*.tsx, **/*.jsx"
+alwaysApply: false
+---
+# frontend-rules
+
+在编写或修改 React 组件时遵循以下规范：
+
+1. 使用 TypeScript，组件 props 显式声明类型。
+2. 交互元素必须带可访问性标签（aria-label / role）。
+3. 禁止内联样式，使用设计系统 token。
+4. 提交前运行 lint 与类型检查。
