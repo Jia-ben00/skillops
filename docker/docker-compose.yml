@@ -1,0 +1,18 @@
+# SkillOps 团队版（MVP）：Web 控制台 + 体检 API + 报告托管
+# 用法: docker compose up -d
+services:
+  skillops:
+    build: .
+    container_name: skillops
+    ports:
+      - "3000:3000"
+    volumes:
+      # 报告输出目录（宿主侧可持久化）
+      - ./reports:/app/reports
+      # 要体检的技能目录（把团队技能仓库挂到这里）
+      - ./skills:/skills
+    environment:
+      - PORT=3000
+      - SKILLOPS_SKILLS_DIR=/skills
+      - SKILLOPS_REPORT_DIR=/app/reports
+    restart: unless-stopped

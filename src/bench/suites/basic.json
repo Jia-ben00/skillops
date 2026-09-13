@@ -1,0 +1,14 @@
+{
+  "id": "basic",
+  "name": "SkillBench · 基础质量门禁",
+  "description": "纯静态检查，无需调用模型，面向所有 Agent Skills。权重合计 100。",
+  "checks": [
+    { "id": "frontmatter_valid", "name": "frontmatter 有效且含 name", "weight": 20 },
+    { "id": "has_description", "name": "有 description", "weight": 15 },
+    { "id": "desc_informative", "name": "描述信息量足够（≥40 字符）", "weight": 10, "param": { "minChars": 40 } },
+    { "id": "desc_within_limit", "name": "描述 ≤ 1536 字符", "weight": 15, "param": { "maxChars": 1536 } },
+    { "id": "lines_within_limit", "name": "SKILL.md ≤ 500 行", "weight": 20, "param": { "maxLines": 500 } },
+    { "id": "no_inline_big_scripts", "name": "内联脚本估算 token ≤ 3000", "weight": 10, "param": { "maxTokens": 3000 } },
+    { "id": "license_or_source", "name": "有 license / 版本 / 仓库信息", "weight": 10 }
+  ]
+}

@@ -1,0 +1,7 @@
+node_modules/
+*.log
+*.disabled/
+.skillopsrc.json
+/reports/
+/skillops-report.html
+/tmp/

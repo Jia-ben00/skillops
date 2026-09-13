@@ -1,0 +1,36 @@
+{
+  "name": "skillops",
+  "version": "0.1.0",
+  "description": "AI 编程 Skill 的治理与评测平台：体检（上下文税/触发冲突/重复/过期/安全）→ SkillBench 基准评测 → 可视化报告 → 一键治理",
+  "type": "module",
+  "bin": {
+    "skillops": "./src/cli.js"
+  },
+  "main": "./src/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "demo:doctor": "node src/cli.js doctor test/fixtures --no-defaults --json",
+    "demo:report": "node src/cli.js report test/fixtures --no-defaults -o skillops-report.html",
+    "demo:bench": "node src/cli.js bench test/fixtures --no-defaults --suite basic"
+  },
+  "keywords": [
+    "claude-code",
+    "skills",
+    "ai-coding",
+    "agent",
+    "skillops",
+    "benchmark",
+    "mcp"
+  ],
+  "license": "MIT",
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {},
+  "devDependencies": {}
+}
