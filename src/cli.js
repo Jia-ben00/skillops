@@ -12,7 +12,7 @@ import { plan, execute } from './fix.js';
 import { startServer } from './server.js';
 import { estimateTokens } from './util.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
 
@@ -37,6 +37,7 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
   --from <dir>          sync push 的本地来源目录
   --to <dir>            sync pull 的本地目标目录
   --local <dir>         sync gate 的本地技能目录
+  --strict             sync gate 严格模式：未收录/未安装也计为错误（CI 用）
   --config <path>       配置文件路径（默认 ./.skillopsrc.json）
   --dry-run / --apply   fix 的预览 / 执行开关（默认 dry-run）
   --target <name>       fix 只处理指定技能
@@ -52,7 +53,7 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
 `;
 
 function parseArgs(argv) {
-  const flags = { dirs: [], add: [], json: false, output: null, suite: null, agent: null, taskTemplate: null, dryRun: false, apply: false, target: null, config: null, port: null, version: false, help: false, noDefaults: false, tool: null, from: null, to: null, local: null };
+  const flags = { dirs: [], add: [], json: false, output: null, suite: null, agent: null, taskTemplate: null, dryRun: false, apply: false, target: null, config: null, port: null, version: false, help: false, noDefaults: false, tool: null, from: null, to: null, local: null, strict: false };
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -72,6 +73,7 @@ function parseArgs(argv) {
     else if (a === '--from') flags.from = argv[++i];
     else if (a === '--to') flags.to = argv[++i];
     else if (a === '--local') flags.local = argv[++i];
+    else if (a === '--strict') flags.strict = true;
     else if (a === '--port') flags.port = argv[++i];
     else if (a === '--add') flags.add.push(argv[++i]);
     else if (a.startsWith('-')) throw new Error(`未知选项: ${a}`);
@@ -291,12 +293,12 @@ async function runSync(flags) {
     }
     case 'gate': {
       const local = flags.local || process.cwd();
-      const { results, passed } = gateSkills(repo, local);
+      const { results, passed } = gateSkills(repo, local, { strict: flags.strict });
       for (const r of results) {
         const mark = r.level === 'error' ? '✗' : r.level === 'ok' ? '✓' : 'i';
         console.log(`  ${mark} [${r.status}] ${r.name}: ${r.message}`);
       }
-      console.log(passed ? '\n门禁通过 ✓' : '\n门禁未通过 ✗（存在版本落后）');
+      console.log(passed ? '\n门禁通过 ✓' : '\n门禁未通过 ✗（存在版本落后或未同步项）');
       if (!passed) process.exitCode = 1;
       break;
     }

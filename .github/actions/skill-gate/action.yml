@@ -1,0 +1,21 @@
+name: 'SkillOps Skill Gate'
+description: '以 .skillops/registry.json 为权威，校验 skills/ 目录的版本与一致性；有 error 级不一致时失败，可直接作为 PR 检查。'
+inputs:
+  skills-path:
+    description: '技能目录（相对仓库根）'
+    required: false
+    default: 'skills'
+  registry-path:
+    description: 'registry.json 路径（相对仓库根）'
+    required: false
+    default: '.skillops/registry.json'
+  strict:
+    description: '严格模式：未收录/未安装的技能也计为错误'
+    required: false
+    default: 'true'
+runs:
+  using: 'composite'
+  steps:
+    - name: Run SkillOps gate
+      shell: bash
+      run: node "${{ github.action_path }}/gate.cjs" "${{ inputs.skills-path }}" "${{ inputs.registry-path }}" "${{ inputs.strict }}"

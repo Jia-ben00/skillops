@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 单元测试
+        run: npm test
+      - name: SkillOps 团队仓库自检（init → push → gate）
+        run: |
+          node src/cli.js sync init .team
+          node src/cli.js sync push .team --from test/fixtures --apply
+          node src/cli.js sync gate .team --local .team/skills --strict
+      - name: skill-gate Action 正例（应通过）
+        run: node .github/actions/skill-gate/gate.cjs .team/skills .team/.skillops/registry.json true
+      - name: skill-gate Action 负例（应失败：版本落后）
+        run: |
+          node -e "const fs=require('fs');let f='.team/skills/good-skill/SKILL.md';let c=fs.readFileSync(f,'utf8').replace(/^version: .*$/m,'version: 0.0.1');fs.writeFileSync(f,c)"
+          if node .github/actions/skill-gate/gate.cjs .team/skills .team/.skillops/registry.json true; then
+            echo "::error::门禁应拦截版本落后，却通过了"
+            exit 1
+          else
+            echo "门禁正确拦截版本落后 ✓"
+          fi

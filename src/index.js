@@ -6,5 +6,5 @@ export { buildReport } from './report.js';
 export { loadSuite, listSuites } from './bench/suite.js';
 export { runSuite } from './bench/runner.js';
 export { plan as planFix, execute as executeFix } from './fix.js';
-export { initTeamRepo, pushSkills, buildRegistry, gateSkills, pullSkills, checksumSkill, versionOf, compareVersions } from './sync.js';
+export { initTeamRepo, pushSkills, buildRegistry, gateSkills, pullSkills, checksumSkill, versionOf, compareVersions, compareSkillToEntry } from './sync.js';
 export { estimateTokens, similarity, jaccard } from './util.js';

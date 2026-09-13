@@ -125,6 +125,34 @@ Claude Desktop 配置示例（`claude_desktop_config.json`）：
 { "mcpServers": { "skillops": { "command": "node", "args": ["/path/to/skillops/src/cli.js", "mcp"] } } }
 ```
 
+## CI 集成（GitHub Action）
+
+把版本门禁变成自动化：任何 PR 若改了技能但没同步 `registry.json`、或版本回退，Action 直接失败拦截。
+
+**方案一：用现成 Action**（任意技能仓库，仓库含 `skills/` 与 `.skillops/registry.json`）：
+
+```yaml
+# .github/workflows/skill-gate.yml
+name: Skill Gate
+on:
+  pull_request:
+    paths: ['skills/**', '.skillops/**']
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Jia-ben00/skillops/.github/actions/skill-gate@main
+        with:
+          skills-path: skills
+          registry-path: .skillops/registry.json
+          strict: 'true'   # 未收录/未安装的技能也拦截
+```
+
+**方案二：本仓库自带 CI**（`.github/workflows/ci.yml`）：`npm test` + 团队仓库自检（init → push → gate --strict）+ Action 正/负例验证。
+
+`strict` 门禁语义：版本落后 / 未收录 / 未安装 → error → 退出码 1；`--strict` 也可在本地用：`skillops sync gate .team --local .team/skills --strict`。
+
 ## 团队部署（Docker 一键）
 
 个人版零依赖；团队版用 Docker Compose 一键起控制台：
@@ -175,11 +203,11 @@ skillops/
 - [x] SkillBench 任务套件扩展（docs / codegen 静态门禁 + agent 实测模板）
 - [x] MCP 接入（doctor / bench / report 三个工具，任意 MCP 客户端可调用）
 - [x] 官方 Agent Skills 规范适配（SKILL.md / .mdc 统一模型 + `--tool` 过滤）
+- [x] CI 集成：GitHub Action 自动跑 gate（`skill-gate` composite action + 自带 CI workflow）
 
 ### 下一步（Ideas）
 
 - [ ] 技能市场：从公开仓库扫描下载 / 订阅源更新
-- [ ] CI 集成：GitHub Action 自动跑 gate 并 PR 拦截
 - [ ] 更多 SkillBench 套件（security / i18n / 长文档）
 - [ ] Web 工作台（报告 + 治理操作界面）
 

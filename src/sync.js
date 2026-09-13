@@ -137,8 +137,36 @@ export function pushSkills(repo, localDir, { apply = false } = {}) {
   return { changed, registryWritten: apply };
 }
 
-/** 版本门禁：把本地技能与团队 registry 比对 */
-export function gateSkills(repo, localDir) {
+/** 单个技能与 registry 条目比对（供 gateSkills / CI 自检共用） */
+export function compareSkillToEntry(skill, entry) {
+  // 版本比较：双方都有 frontmatter version 时语义比较；都没有时用校验和比对
+  let cmp;
+  let label;
+  if (skill.version && entry.version) {
+    cmp = compareVersions(skill.version, entry.version);
+    label = `v${skill.version} / 团队 v${entry.version}`;
+  } else if (!skill.version && !entry.version) {
+    const localChecksum = checksumSkill(skill.dir);
+    cmp = localChecksum === entry.checksum ? 'equal' : 'different';
+    label = `checksum:${localChecksum} / 团队 checksum:${entry.checksum}`;
+  } else {
+    cmp = 'different';
+    label = `v${skill.version || 'checksum'} / 团队 v${entry.version || 'checksum'}`;
+  }
+  if (cmp === 'equal') {
+    return { status: 'ok', level: 'ok', message: `与团队仓库一致（${label}）` };
+  }
+  if (cmp === 'ahead') {
+    return { status: 'ahead', level: 'info', message: `本地版本领先团队仓库（${label}），建议 push` };
+  }
+  return { status: 'stale', level: 'error', message: `版本落后于团队仓库（${label}），门禁未通过` };
+}
+
+/**
+ * 版本门禁：把本地技能与团队 registry 比对。
+ * @param {object} opts.strict 严格模式：未收录/未安装也计为 error（用于 CI 自检）
+ */
+export function gateSkills(repo, localDir, { strict = false } = {}) {
   const reg = readRegistry(repo);
   const results = [];
   const localSkills = listSubDirs(localDir)
@@ -149,34 +177,24 @@ export function gateSkills(repo, localDir) {
   for (const s of localSkills) {
     const entry = reg.skills[s.name];
     if (!entry) {
-      results.push({ name: s.name, status: 'unregistered', level: 'info', message: '本地技能未收录进团队仓库' });
+      results.push({
+        name: s.name,
+        status: 'unregistered',
+        level: strict ? 'error' : 'info',
+        message: strict ? '本地技能未收录进团队仓库，请先 sync register' : '本地技能未收录进团队仓库',
+      });
       continue;
     }
-    // 版本比较：双方都有 frontmatter version 时语义比较；都没有时用校验和比对
-    let cmp;
-    let label;
-    if (s.version && entry.version) {
-      cmp = compareVersions(s.version, entry.version);
-      label = `v${s.version} / 团队 v${entry.version}`;
-    } else if (!s.version && !entry.version) {
-      const localChecksum = checksumSkill(s.dir);
-      cmp = localChecksum === entry.checksum ? 'equal' : 'different';
-      label = `checksum:${localChecksum} / 团队 checksum:${entry.checksum}`;
-    } else {
-      cmp = 'different';
-      label = `v${s.version || 'checksum'} / 团队 v${entry.version || 'checksum'}`;
-    }
-    if (cmp === 'equal') {
-      results.push({ name: s.name, status: 'ok', level: 'ok', message: `与团队仓库一致（${label}）` });
-    } else if (cmp === 'ahead') {
-      results.push({ name: s.name, status: 'ahead', level: 'info', message: `本地版本领先团队仓库（${label}），建议 push` });
-    } else {
-      results.push({ name: s.name, status: 'stale', level: 'error', message: `版本落后于团队仓库（${label}），门禁未通过` });
-    }
+    results.push({ name: s.name, ...compareSkillToEntry(s, entry) });
   }
   for (const [name, entry] of Object.entries(reg.skills)) {
     if (!localSkills.some((s) => s.name === name)) {
-      results.push({ name, status: 'missing_local', level: 'info', message: `团队已收录但本地未安装（v${entry.version || 'checksum'}）` });
+      results.push({
+        name,
+        status: 'missing_local',
+        level: strict ? 'error' : 'info',
+        message: `团队已收录但本地未安装（v${entry.version || 'checksum'}）`,
+      });
     }
   }
   const hasBlock = results.some((r) => r.level === 'error');

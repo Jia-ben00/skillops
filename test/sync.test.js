@@ -95,3 +95,23 @@ test('buildRegistry 幂等', () => {
   const reg = buildRegistry(repo);
   assert.equal(Object.keys(reg.skills).length, 7);
 });
+
+test('sync gate --strict：未收录技能计为错误', () => {
+  const repo = path.join(tmp, 'team-strict');
+  initTeamRepo(repo);
+  pushSkills(repo, FIX, { apply: true });
+  // 本地多出一个 registry 没有的技能
+  const local = path.join(tmp, 'local-strict');
+  fs.cpSync(FIX, local, { recursive: true });
+  fs.mkdirSync(path.join(local, 'brand-new'), { recursive: true });
+  fs.writeFileSync(
+    path.join(local, 'brand-new', 'SKILL.md'),
+    '---\nname: brand-new\ndescription: 一个新技能，尚未收录\n---\n# brand-new\n',
+    'utf8',
+  );
+  const loose = gateSkills(repo, local);
+  assert.equal(loose.passed, true, '非 strict 下未收录应为 info');
+  const strictRes = gateSkills(repo, local, { strict: true });
+  assert.equal(strictRes.passed, false, 'strict 下未收录应为 error');
+  assert.ok(strictRes.results.some((r) => r.name === 'brand-new' && r.status === 'unregistered' && r.level === 'error'));
+});
