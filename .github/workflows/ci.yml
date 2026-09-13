@@ -15,6 +15,12 @@ jobs:
           node-version: 20
       - name: 单元测试
         run: npm test
+      - name: 一键安装脚本语法检查（install.sh）
+        run: sh -n install.sh
+      - name: 发布包构建自检（tgz/zip 结构）
+        run: |
+          node scripts/build-release.js
+          node -e "const fs=require('fs'),zlib=require('zlib');const r=JSON.parse(fs.readFileSync('dist/release.json','utf8'));const tgz=fs.readFileSync('dist/'+r.package);const t=zlib.gunzipSync(tgz).toString('latin1');if(!t.includes('package/src/cli.js'))process.exit(1);const z=fs.readFileSync('dist/'+r.zip);if(z.readUInt32LE(0)!==0x04034b50)process.exit(1);console.log('release assets ok: '+r.package)"
       - name: SkillOps 团队仓库自检（init → push → gate）
         run: |
           node src/cli.js sync init .team

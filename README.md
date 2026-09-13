@@ -21,20 +21,40 @@ SkillOps 是一个面向 Claude Code / Codex / Cursor / OpenCode 等 AI 编程�
 
 ## 快速开始
 
-环境要求：Node.js ≥ 18。
+环境要求：Node.js ≥ 18（零依赖，无需 `npm install`、无需数据库）。
+
+**方式一：一键安装（推荐，无需克隆仓库，无需 npm）**
+
+```powershell
+# Windows（PowerShell）
+irm https://raw.githubusercontent.com/Jia-ben00/skillops/main/install.ps1 | iex
+skillops doctor
+```
 
 ```bash
-# 方式一：直接跑（无需安装）
-git clone <repo-url> && cd skillops
-node src/cli.js doctor
-
-# 方式二：全局安装（推荐）
-npm install -g .
-skillops doctor ~/.claude/skills
-
-# 方式三：用 npx 指向本仓库
-npx skillops doctor
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/Jia-ben00/skillops/main/install.sh | sh
+skillops doctor
 ```
+
+安装脚本从 GitHub Release 下载发布包（Windows 用 zip + .NET 原生解压，Unix 用 tgz），校验 sha256 后安装到用户目录并写入 PATH；镜像/内网环境可用 `SKILLOPS_URL` 指向自建下载源。发布包由 `node scripts/build-release.js` 构建（手写 tar/zip + 标准库，零外部命令）。
+
+**方式二：npm / npx（发布到 npm 后）**
+
+```bash
+npx skillops-cli doctor        # 免安装直接跑
+npm i -g skillops-cli          # 或全局安装
+skillops doctor
+```
+
+**方式三：从源码运行**
+
+```bash
+git clone https://github.com/Jia-ben00/skillops && cd skillops
+node src/cli.js doctor
+```
+
+**方式四：Docker 团队部署**（见下文「团队部署」）。
 
 > `skillops doctor` 默认自动探测：`~/.claude/skills`、项目级 `.claude/skills`、`.codex/skills`、`.cursor/skills`，以及 `SKILLOPS_SKILLS` 环境变量与 `.skillopsrc.json` 中配置的目录。
 > 只想扫描指定目录：`skillops doctor <dir> --no-defaults`。
