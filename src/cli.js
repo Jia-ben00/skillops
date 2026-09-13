@@ -9,10 +9,10 @@ import { buildReport } from './report.js';
 import { loadSuite, listSuites } from './bench/suite.js';
 import { runSuite } from './bench/runner.js';
 import { plan, execute } from './fix.js';
-import { startServer } from './server.js';
+import { startServer, setSkillsDir, setPort } from './server.js';
 import { estimateTokens } from './util.js';
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 
 const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
 
@@ -24,7 +24,7 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
   skillops sync <init|push|register|gate|pull> <teamRepo>  团队策略：Git 单一事实源 + 版本门禁
   skillops market <search|install|subscribe|update|list>  技能市场：扫描公开仓库 / 订阅源更新
   skillops mcp                     以 MCP 服务器模式运行（供 AI 客户端调用）
-  skillops serve [--port <n>]      启动团队版控制台（托管报告 + 体检 API）
+  skillops serve [dir] [--port <n>]  启动 Web 工作台（报告可视化 + 治理操作）
   skillops init                      生成 .skillopsrc.json 配置模板
 
 选项:
@@ -156,7 +156,8 @@ async function main() {
   }
 
   if (flags.command === 'serve') {
-    process.env.PORT = String(flags.port || process.env.PORT || 3000);
+    setPort(flags.port || process.env.PORT);
+    if (flags.dirs[0]) setSkillsDir(path.resolve(flags.dirs[0]));
     startServer();
     return;
   }

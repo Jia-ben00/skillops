@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkillOps 控制台</title>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--ink:#0f172a;--sub:#64748b;--line:#e2e8f0;--brand:#0e7490;--ok:#16a34a;--warn:#d97706;--err:#dc2626;--info:#2563eb;}
+*{box-sizing:border-box;}
+body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;margin:0;background:var(--bg);color:var(--ink);font-size:14px;}
+.top{background:#0f172a;color:#fff;padding:16px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.top h1{font-size:18px;margin:0;}
+.top .sub{font-size:12px;color:#94a3b8;}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 64px;}
+.toolbar{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap;align-items:center;}
+.toolbar input{flex:1;min-width:240px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;}
+.toolbar button{padding:9px 18px;border:0;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;}
+.btn-primary{background:var(--brand);color:#fff;}
+.btn-ghost{background:#fff;border:1px solid var(--line)!important;color:var(--ink);}
+.btn-danger{background:#fff;border:1px solid #fca5a5!important;color:var(--err);}
+.btn-sm{padding:4px 10px!important;font-size:12px!important;}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:16px 0;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+.card .num{font-size:26px;font-weight:700;margin-top:4px;}
+.card .lbl{font-size:12px;color:var(--sub);}
+.grade-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#fff;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:860px){.grid{grid-template-columns:1fr;}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;}
+.panel h2{font-size:15px;margin:0 0 12px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;}
+th{color:var(--sub);font-weight:600;font-size:12px;}
+tr.clickable{cursor:pointer;}
+tr.clickable:hover{background:#f8fafc;}
+.bar{height:14px;border-radius:4px;min-width:2px;}
+.sev{font-weight:700;}
+.sev-error{color:var(--err);} .sev-warn{color:var(--warn);} .sev-info{color:var(--info);}
+ul.issues{margin:4px 0;padding-left:18px;font-size:12.5px;}
+li.issue{margin:2px 0;}
+.detail{background:#f8fafc;border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12.5px;}
+.sugg{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;}
+.sugg .head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;}
+.tag-auto{background:#ecfdf5;color:#047857;}
+.tag-manual{background:#fef3c7;color:#b45309;}
+.muted{color:var(--sub);font-size:12px;}
+.mono{font-family:Consolas,Menlo,monospace;font-size:12px;}
+.hidden{display:none;}
+#msg{position:fixed;right:16px;bottom:16px;background:#0f172a;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;display:none;max-width:420px;z-index:9;}
+svg text{font-family:inherit;}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>SkillOps 控制台</h1>
+  <span class="sub" id="ver">v0.5.0 · 体检 → 评测 → 治理</span>
+</div>
+<div class="wrap">
+  <div class="toolbar">
+    <input id="dir" placeholder="技能根目录（留空使用默认）">
+    <button class="btn-primary" onclick="runDoctor()">运行体检</button>
+    <button class="btn-ghost" onclick="genReport()">生成报告</button>
+    <button class="btn-ghost" onclick="refreshSkills()">刷新列表</button>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="grid">
+    <div class="panel"><h2>技能评分（降序）</h2><div id="chartScore"></div></div>
+    <div class="panel"><h2>上下文税 Top 8（常驻 / 触发）</h2><div id="chartTax"></div></div>
+    <div class="panel"><h2>问题严重程度分布</h2><div id="chartSev"></div></div>
+    <div class="panel"><h2>技能格式分布</h2><div id="chartFmt"></div></div>
+  </div>
+
+  <div class="panel">
+    <h2>技能明细</h2>
+    <div style="overflow-x:auto;"><table id="skillTable">
+      <thead><tr><th>技能</th><th>格式</th><th>分</th><th>级</th><th>常驻税</th><th>触发税</th><th>行数</th><th>问题</th><th>来源</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+
+  <div class="panel">
+    <h2>治理建议</h2>
+    <div id="suggList"><p class="muted">先运行体检。</p></div>
+  </div>
+</div>
+<div id="msg"></div>
+
+<script>
+const state = { analysis: null, dir: '' };
+const $ = (id) => document.getElementById(id);
+
+function toast(text) {
+  const m = $('msg');
+  m.textContent = text;
+  m.style.display = 'block';
+  clearTimeout(m._t);
+  m._t = setTimeout(() => (m.style.display = 'none'), 4000);
+}
+function esc(s) {
+  return String(s ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+}
+function gradeColor(g) {
+  return { A: '#16a34a', B: '#2563eb', C: '#d97706', D: '#dc2626' }[g] || '#64748b';
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.message || `${r.status} ${r.statusText}`);
+  return j;
+}
+function post(path, body) {
+  return api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+async function runDoctor() {
+  state.dir = $('dir').value.trim();
+  try {
+    const a = await post('/api/doctor', { skillsRoot: state.dir });
+    state.analysis = a;
+    renderAll();
+    toast(`体检完成：综合分 ${a.score}（${a.grade}）`);
+  } catch (e) {
+    toast(`体检失败：${e.message}`);
+  }
+}
+
+async function refreshSkills() {
+  state.dir = $('dir').value.trim();
+  try {
+    const a = await post('/api/doctor', { skillsRoot: state.dir });
+    state.analysis = a;
+    renderAll();
+    toast('已刷新');
+  } catch (e) {
+    toast(`刷新失败：${e.message}`);
+  }
+}
+
+async function genReport() {
+  try {
+    const j = await api(`/api/report?dir=${encodeURIComponent(state.dir)}`);
+    toast(`报告已生成：${j.path}`);
+    setTimeout(() => window.open(`/reports/${encodeURIComponent(j.name)}`, '_blank'), 400);
+  } catch (e) {
+    toast(`报告生成失败：${e.message}`);
+  }
+}
+
+/* ---------- 图表（自绘 SVG，零依赖） ---------- */
+function svgBar(w, h, rows) {
+  // rows: [{label, value, color, max}]
+  const max = Math.max(...rows.map((r) => r.max ?? 100), 1);
+  const barH = 16, gap = 10, labelW = 150;
+  const items = rows.map((r, i) => {
+    const y = i * (barH + gap) + 4;
+    const bw = ((r.value / max) * (w - labelW - 64));
+    return `<g>
+      <text x="0" y="${y + 12}" font-size="12" fill="#334155">${esc(r.label)}</text>
+      <rect x="${labelW}" y="${y}" width="${Math.max(bw, 2)}" height="${barH}" rx="4" fill="${r.color}" opacity="0.9"></rect>
+      <text x="${labelW + Math.max(bw, 2) + 6}" y="${y + 12}" font-size="11" fill="#64748b">${r.value}</text>
+    </g>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-height:${h + 8}px">${items}</svg>`;
+}
+
+function renderScoreChart() {
+  const rows = [...state.analysis.skills]
+    .sort((a, b) => b.score - a.score)
+    .map((s) => ({ label: s.name, value: s.score, color: gradeColor(s.grade), max: 100 }));
+  $('chartScore').innerHTML = rows.length ? svgBar(560, Math.max(rows.length * 26 + 8, 40), rows) : '<p class="muted">无技能</p>';
+}
+
+function renderTaxChart() {
+  const rows = [...state.analysis.skills]
+    .sort((a, b) => b.listingTax + b.triggerTax - (a.listingTax + a.triggerTax))
+    .slice(0, 8)
+    .map((s) => ({ label: s.name, value: s.listingTax, color: '#0e7490', max: 1000 }));
+  const rows2 = [...state.analysis.skills]
+    .sort((a, b) => b.listingTax + b.triggerTax - (a.listingTax + a.triggerTax))
+    .slice(0, 8)
+    .map((s) => ({ label: s.name, value: s.triggerTax, color: '#7dd3fc', max: 1000 }));
+  if (!rows.length) { $('chartTax').innerHTML = '<p class="muted">无技能</p>'; return; }
+  const h = Math.max(rows.length * 46 + 8, 60);
+  const inner = rows.map((r, i) => {
+    const max = 1000;
+    const w1 = Math.max((r.value / max) * 300, 2);
+    const w2 = Math.max((rows2[i].value / max) * 300, 2);
+    const y = i * 46 + 6;
+    return `<g>
+      <text x="0" y="${y + 10}" font-size="11" fill="#334155">${esc(r.label)}</text>
+      <rect x="0" y="${y + 14}" width="${w1}" height="10" rx="3" fill="#0e7490"></rect>
+      <text x="${w1 + 4}" y="${y + 23}" font-size="10" fill="#0e7490">常驻 ${r.value}</text>
+      <rect x="0" y="${y + 26}" width="${w2}" height="10" rx="3" fill="#7dd3fc"></rect>
+      <text x="${w2 + 4}" y="${y + 35}" font-size="10" fill="#0284c7">触发 ${rows2[i].value}</text>
+    </g>`;
+  }).join('');
+  $('chartTax').innerHTML = `<svg viewBox="0 0 560 ${h}" width="100%">${inner}</svg><p class="muted">token 为估算值（CJK≈1/字）</p>`;
+}
+
+function renderSevChart() {
+  const s = state.analysis.totals.bySeverity;
+  const max = Math.max(s.error, s.warn, s.info, 1);
+  const items = [
+    ['error', s.error, '#dc2626'],
+    ['warn', s.warn, '#d97706'],
+    ['info', s.info, '#2563eb'],
+  ].map(([k, v, c], i) => {
+    const x = i * 100 + 20;
+    const h = (v / max) * 140;
+    return `<g>
+      <rect x="${x}" y="${150 - h}" width="52" height="${Math.max(h, 2)}" rx="6" fill="${c}"></rect>
+      <text x="${x + 26}" y="${150 - h - 6}" font-size="12" font-weight="700" text-anchor="middle" fill="${c}">${v}</text>
+      <text x="${x + 26}" y="170" font-size="12" text-anchor="middle" fill="#475569">${k}</text>
+    </g>`;
+  }).join('');
+  $('chartSev').innerHTML = `<svg viewBox="0 0 340 180" width="100%">${items}</svg>`;
+}
+
+function renderFmtChart() {
+  const counts = {};
+  for (const s of state.analysis.skills) counts[s.format] = (counts[s.format] || 0) + 1;
+  const total = state.analysis.skills.length || 1;
+  const rows = Object.entries(counts).map(([k, v]) => ({
+    label: k === 'agent-skill' ? 'SKILL.md (agent-skill)' : k === 'cursor-rule' ? '.mdc (cursor-rule)' : k,
+    value: v,
+    color: k === 'cursor-rule' ? '#a855f7' : '#0e7490',
+    max: total,
+  }));
+  $('chartFmt').innerHTML = rows.length ? svgBar(340, rows.length * 26 + 8, rows) : '<p class="muted">无技能</p>';
+}
+
+/* ---------- 明细与治理 ---------- */
+function renderTable() {
+  const tbody = $('skillTable').querySelector('tbody');
+  tbody.innerHTML = state.analysis.skills
+    .map((s) => `<tr class="clickable" onclick="showDetail('${esc(s.name)}')">
+      <td>${esc(s.name)}</td><td class="muted">${esc(s.format)}</td>
+      <td><b>${s.score}</b></td><td><span class="grade-badge" style="background:${gradeColor(s.grade)}">${s.grade}</span></td>
+      <td>${s.listingTax}</td><td>${s.triggerTax}</td><td>${s.lines}</td>
+      <td class="sev"><span class="sev-error">${s.issueCount ?? 0}</span></td><td class="muted">${esc(s.source || '')}</td>
+    </tr>`).join('');
+}
+
+function showDetail(name) {
+  const s = state.analysis.skills.find((x) => x.name === name);
+  if (!s) return;
+  const issues = state.analysis.issues.filter((i) => i.skill === name);
+  const el = document.createElement('div');
+  el.className = 'detail';
+  el.innerHTML = `<b>${esc(name)}</b> <span class="muted mono">${esc(s.dir)}</span>
+    <ul class="issues">${issues.length ? issues.map((i) => `<li class="issue sev sev-${i.severity}">[${i.severity}] ${esc(i.message)}</li>`).join('') : '<li class="muted">无问题</li>'}</ul>
+    <div class="muted">版本：${esc(s.version || '—')} · license：${esc(s.license || '—')} · 行数：${s.lines} · 大小：${s.sizeBytes}B</div>`;
+  const row = [...document.querySelectorAll('#skillTable tr')].find((r) => r.textContent.includes(name));
+  const next = row.nextElementSibling;
+  if (next && next.classList.contains('detail')) next.remove();
+  row.insertAdjacentElement('afterend', el);
+}
+
+function renderSuggestions() {
+  const list = state.analysis.suggestions;
+  const box = $('suggList');
+  if (!list.length) { box.innerHTML = '<p class="muted">无治理建议，技能状态良好。</p>'; return; }
+  box.innerHTML = list.map((g, i) => {
+    const auto = g.action === 'disable' || g.action === 'update';
+    return `<div class="sugg">
+      <div class="head">
+        <span class="tag ${auto ? 'tag-auto' : 'tag-manual'}">${esc(g.action)}</span>
+        <b>${esc(g.skill)}</b>
+        <span class="muted">${esc(g.reason)}</span>
+        ${auto ? `<button class="btn-ghost btn-sm" onclick="previewFix(${i})">预览</button><button class="btn-danger btn-sm" onclick="applyFix(${i})">执行</button>` : ''}
+      </div>
+      <div class="muted" style="margin-top:4px;">${esc(g.detail || '')}</div>
+      <div id="fixout-${i}" class="mono" style="margin-top:6px;font-size:12px;"></div>
+    </div>`;
+  }).join('');
+}
+
+async function previewFix(i) {
+  const g = state.analysis.suggestions[i];
+  try {
+    const j = await post('/api/fix/plan', { skillsRoot: state.dir, target: g.skill });
+    const out = $('fixout-' + i);
+    out.textContent = j.plan.map((p) => p.result).join('\n') || '（无可执行项）';
+  } catch (e) {
+    toast(`预览失败：${e.message}`);
+  }
+}
+
+async function applyFix(i) {
+  const g = state.analysis.suggestions[i];
+  if (!confirm(`确认执行治理「${g.action}」到技能「${g.skill}」？\n${g.reason}\n\n停用 = 重命名为 *.disabled（可逆）`)) return;
+  try {
+    const j = await post('/api/fix/apply', { skillsRoot: state.dir, items: [{ action: g.action, skill: g.skill }] });
+    const out = $('fixout-' + i);
+    out.textContent = [...j.changed.map((c) => c.result), ...j.skipped.map((s) => s.result)].join('\n');
+    toast('已执行，正在刷新…');
+    setTimeout(refreshSkills, 600);
+  } catch (e) {
+    toast(`执行失败：${e.message}`);
+  }
+}
+
+function renderAll() {
+  const a = state.analysis;
+  $('cards').innerHTML = `
+    <div class="card"><div class="lbl">综合分</div><div class="num">${a.score}<span class="grade-badge" style="background:${gradeColor(a.grade)};margin-left:8px;vertical-align:middle;">${a.grade}</span></div></div>
+    <div class="card"><div class="lbl">技能数</div><div class="num">${a.totals.skillCount}</div></div>
+    <div class="card"><div class="lbl">常驻税（每轮）</div><div class="num">${a.totals.listingTax}</div></div>
+    <div class="card"><div class="lbl">触发税（每次调用）</div><div class="num">${a.totals.triggerTax}</div></div>
+    <div class="card"><div class="lbl">问题</div><div class="num"><span class="sev-error">${a.totals.bySeverity.error}</span> / <span class="sev-warn">${a.totals.bySeverity.warn}</span> / <span class="sev-info">${a.totals.bySeverity.info}</span></div></div>`;
+  renderScoreChart();
+  renderTaxChart();
+  renderSevChart();
+  renderFmtChart();
+  renderTable();
+  renderSuggestions();
+}
+
+/* 初始化 */
+(async () => {
+  try {
+    const h = await api('/api/health');
+    $('ver').textContent = `v${h.version} · 体检 → 评测 → 治理 · 默认目录 ${h.skillsDir}`;
+    if (h.skillsDir && h.skillsDir !== '.') $('dir').placeholder = `技能根目录（默认 ${h.skillsDir}）`;
+    await runDoctor();
+  } catch (e) {
+    toast(`初始化失败：${e.message}`);
+  }
+})();
+</script>
+</body>
+</html>

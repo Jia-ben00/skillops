@@ -1,5 +1,13 @@
-// 团队版轻量服务端（MVP）：托管报告 + 一个体检 API
-// 部署：docker compose up -d（见 docker/），或 node src/server.js
+// SkillOps Web 工作台：报告可视化 + 治理操作界面（零依赖 http 服务器）
+// API:
+//   GET  /                控制台 SPA
+//   GET  /api/health      健康检查（版本 + 默认目录）
+//   GET  /api/skills?dir= 技能列表（轻量）
+//   POST /api/doctor      完整体检（body: {skillsRoot}）
+//   POST /api/fix/plan    治理计划（只读 dry-run 预览，body: {skillsRoot, target}）
+//   POST /api/fix/apply   执行治理（body: {skillsRoot, items:[{action,skill}]}）
+//   GET  /api/report?dir= 生成报告到 REPORT_DIR 并返回路径
+//   GET  /reports/*       托管已生成报告
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -7,11 +15,32 @@ import { fileURLToPath } from 'node:url';
 import { scanFromArgs, scanSmartDir, loadConfig } from './scanner.js';
 import { runAnalysis } from './analyzers/index.js';
 import { buildReport } from './report.js';
+import { plan as planFix, execute as executeFix } from './fix.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.PORT || 3000);
+const VERSION = '0.5.0';
 const REPORT_DIR = path.resolve(process.env.SKILLOPS_REPORT_DIR || path.join(process.cwd(), 'reports'));
-const DEFAULT_SKILLS_DIR = process.env.SKILLOPS_SKILLS_DIR || process.cwd();
+// 端口与默认技能目录：CLI 可在运行时通过 setter 覆盖（模块加载时的 env 为兜底）
+let port = Number(process.env.PORT || 3000);
+export function setPort(p) {
+  if (p) port = Number(p);
+}
+let defaultSkillsDir = process.env.SKILLOPS_SKILLS_DIR || process.cwd();
+export function setSkillsDir(dir) {
+  if (dir) defaultSkillsDir = dir;
+}
+const CONSOLE_HTML = fs.readFileSync(path.join(__dirname, 'web', 'console.html'), 'utf8');
+
+function json(res, data, status = 200) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.end(JSON.stringify(data, null, 2));
+}
+function html(res, data, status = 200) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.end(data);
+}
 
 function readBody(req) {
   return new Promise((resolve) => {
@@ -24,93 +53,123 @@ function readBody(req) {
   });
 }
 
-const INDEX_HTML = `<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SkillOps 团队控制台</title>
-<style>
-body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;margin:0;background:#f1f5f9;color:#0f172a;}
-.wrap{max-width:760px;margin:0 auto;padding:32px 16px;}
-h1{font-size:20px;} input{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;}
-button{margin-top:10px;padding:8px 18px;background:#0e7490;color:#fff;border:0;border-radius:8px;font-size:14px;cursor:pointer;}
-pre{background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px;font-size:12px;overflow:auto;max-height:480px;}
-a{color:#0e7490;}
-</style></head>
-<body><div class="wrap">
-<h1>SkillOps 团队控制台（MVP）</h1>
-<p style="font-size:13px;color:#475569;">对指定技能目录运行体检，查看 JSON 结果；或直接访问 <a href="/reports/">/reports/</a> 查看已生成报告。</p>
-<input id="dir" placeholder="技能根目录（容器内路径，默认 ${esc(DEFAULT_SKILLS_DIR)}）" value="">
-<button onclick="run()">运行体检</button>
-<pre id="out">等待操作…</pre>
-<script>
-async function run(){
-  const dir=document.getElementById('dir').value.trim()||'';
-  const out=document.getElementById('out');
-  out.textContent='体检中…';
-  const r=await fetch('/api/doctor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skillsRoot:dir})});
-  const j=await r.json();
-  out.textContent=JSON.stringify(j,null,2);
+function analysisFor(root) {
+  const config = loadConfig(root);
+  const skills = root
+    ? scanSmartDir(root, 'server')
+    : scanFromArgs({ cwd: defaultSkillsDir, config }).skills;
+  return runAnalysis(skills, config);
 }
-</script>
-</div></body></html>`;
 
-function esc(s) {
-  return String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+/** 治理执行：只接受自动动作，且技能必须在本次体检结果内（防路径注入） */
+async function handleFixApply(body) {
+  const root = body.skillsRoot || defaultSkillsDir;
+  const items = Array.isArray(body.items) ? body.items.slice(0, 50) : [];
+  const analysis = analysisFor(root);
+  const valid = new Set(analysis.skills.map((s) => s.name));
+  const filtered = items.filter(
+    (it) => it && valid.has(it.skill) && (it.action === 'disable' || it.action === 'update'),
+  );
+  const { changed, skipped } = executeFix(filtered, analysis, { apply: true });
+  return { changed, skipped, appliedCount: changed.length, analysis: { score: analysis.score, grade: analysis.grade } };
 }
 
 export function createServer() {
   return http.createServer(async (req, res) => {
-    const url = new URL(req.url, `http://localhost:${PORT}`);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-
-    if (req.method === 'GET' && url.pathname === '/') {
-      res.end(INDEX_HTML);
-      return;
-    }
-    if (req.method === 'POST' && url.pathname === '/api/doctor') {
-      try {
-        const body = JSON.parse((await readBody(req)) || '{}');
-        const root = body.skillsRoot || DEFAULT_SKILLS_DIR;
-        const config = loadConfig(root);
-        // 显式传入目录：直接扫描该目录下的技能；未传入：按默认位置探测
-        const skills = body.skillsRoot
-          ? scanSmartDir(root, 'server')
-          : scanFromArgs({ cwd: root, config }).skills;
-        const analysis = runAnalysis(skills, config);
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.end(JSON.stringify(analysis, null, 2));
-      } catch (e) {
-        res.statusCode = 500;
-        res.end(`<pre>${esc(e.stack || e.message)}</pre>`);
-      }
-      return;
-    }
-    if (req.method === 'GET' && url.pathname.startsWith('/reports/')) {
-      const rel = decodeURIComponent(url.pathname.slice('/reports/'.length)).replace(/[\\/]/g, path.sep);
-      const file = path.resolve(REPORT_DIR, rel);
-      if (!file.startsWith(REPORT_DIR + path.sep) || !fs.existsSync(file)) {
-        res.statusCode = 404;
-        res.end('not found');
+    const url = new URL(req.url, `http://localhost:${port}`);
+    try {
+      if (req.method === 'GET' && url.pathname === '/') {
+        html(res, CONSOLE_HTML);
         return;
       }
-      if (rel.endsWith('.html')) res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.end(fs.readFileSync(file));
-      return;
+      if (req.method === 'GET' && url.pathname === '/api/health') {
+        json(res, { ok: true, version: VERSION, skillsDir: defaultSkillsDir, reportDir: REPORT_DIR });
+        return;
+      }
+      if (req.method === 'GET' && url.pathname === '/api/skills') {
+        const root = url.searchParams.get('dir') || defaultSkillsDir;
+        const a = analysisFor(root);
+        json(res, {
+          score: a.score,
+          grade: a.grade,
+          skills: a.skills.map((s) => ({
+            name: s.name,
+            format: s.format,
+            source: s.source,
+            score: s.score,
+            grade: s.grade,
+            listingTax: s.listingTax,
+            triggerTax: s.triggerTax,
+            lines: s.lines,
+            issueCount: s.issueCount,
+          })),
+        });
+        return;
+      }
+      if (req.method === 'POST' && url.pathname === '/api/doctor') {
+        const body = JSON.parse((await readBody(req)) || '{}');
+        const root = body.skillsRoot || defaultSkillsDir;
+        const a = analysisFor(root);
+        json(res, { skillsRoot: root, ...a });
+        return;
+      }
+      if (req.method === 'POST' && url.pathname === '/api/fix/plan') {
+        const body = JSON.parse((await readBody(req)) || '{}');
+        const root = body.skillsRoot || defaultSkillsDir;
+        const a = analysisFor(root);
+        const items = planFix(a, { target: body.target || undefined });
+        json(res, {
+          score: a.score,
+          grade: a.grade,
+          plan: items.map((it) => ({ action: it.action, skill: it.skill, reason: it.reason, detail: it.detail, result: `[dry-run] ${it.action} ${it.skill}` })),
+          suggestions: a.suggestions,
+        });
+        return;
+      }
+      if (req.method === 'POST' && url.pathname === '/api/fix/apply') {
+        const body = JSON.parse((await readBody(req)) || '{}');
+        const result = await handleFixApply(body);
+        json(res, result);
+        return;
+      }
+      if (req.method === 'GET' && url.pathname === '/api/report') {
+        const root = url.searchParams.get('dir') || defaultSkillsDir;
+        const a = analysisFor(root);
+        if (!fs.existsSync(REPORT_DIR)) fs.mkdirSync(REPORT_DIR, { recursive: true });
+        const name = `skillops-report-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.html`;
+        const outPath = path.join(REPORT_DIR, name);
+        fs.writeFileSync(outPath, buildReport(a, { scope: root, version: VERSION }), 'utf8');
+        json(res, { path: outPath, name, bytes: fs.statSync(outPath).size, score: a.score, grade: a.grade });
+        return;
+      }
+      if (req.method === 'GET' && url.pathname.startsWith('/reports/')) {
+        const rel = decodeURIComponent(url.pathname.slice('/reports/'.length)).replace(/[\\/]/g, path.sep);
+        const file = path.resolve(REPORT_DIR, rel);
+        if (!file.startsWith(REPORT_DIR + path.sep) || !fs.existsSync(file)) {
+          html(res, 'not found', 404);
+          return;
+        }
+        if (rel.endsWith('.html')) res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(fs.readFileSync(file));
+        return;
+      }
+      if (req.method === 'GET' && (url.pathname === '/reports' || url.pathname === '/reports/')) {
+        const files = fs.existsSync(REPORT_DIR) ? fs.readdirSync(REPORT_DIR).filter((f) => f.endsWith('.html')) : [];
+        html(res, `<h1>已生成报告</h1><ul>${files.map((f) => `<li><a href="/reports/${encodeURIComponent(f)}">${f}</a></li>`).join('') || '<li>暂无</li>'}</ul>`);
+        return;
+      }
+      html(res, 'not found', 404);
+    } catch (e) {
+      json(res, { message: e.message, stack: e.stack }, 500);
     }
-    if (req.method === 'GET' && url.pathname === '/reports' || req.method === 'GET' && url.pathname === '/reports/') {
-      const files = fs.existsSync(REPORT_DIR) ? fs.readdirSync(REPORT_DIR).filter((f) => f.endsWith('.html')) : [];
-      res.end(`<h1>已生成报告</h1><ul>${files.map((f) => `<li><a href="/reports/${encodeURIComponent(f)}">${esc(f)}</a></li>`).join('') || '<li>暂无</li>'}</ul>`);
-      return;
-    }
-    res.statusCode = 404;
-    res.end('not found');
   });
 }
 
 export function startServer() {
   if (!fs.existsSync(REPORT_DIR)) fs.mkdirSync(REPORT_DIR, { recursive: true });
-  createServer().listen(PORT, () => {
-    console.log(`SkillOps 团队控制台已启动: http://localhost:${PORT}`);
+  createServer().listen(port, () => {
+    console.log(`SkillOps Web 工作台已启动: http://localhost:${port}`);
     console.log(`报告目录: ${REPORT_DIR}`);
-    console.log(`默认技能目录: ${DEFAULT_SKILLS_DIR}`);
+    console.log(`默认技能目录: ${defaultSkillsDir}`);
   });
 }
