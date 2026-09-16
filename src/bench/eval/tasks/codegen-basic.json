@@ -1,0 +1,124 @@
+{
+  "id": "codegen-basic",
+  "name": "代码修复与测试套件",
+  "description": "5 个有唯一正确答案的编码任务，用于 A/B 对照实验：同一任务跑两遍（注入技能 / 不注入），用成功率差量化技能的实际提升。",
+  "verifyTimeoutMs": 15000,
+  "tasks": [
+    {
+      "id": "fix-off-by-one",
+      "title": "修复求和函数的差一错误",
+      "skillTags": ["code-review", "diagnosing-bugs", "systematic-debugging"],
+      "workspace": {
+        "src/sum.js": "// 返回数组所有元素之和\nexport function sum(arr) {\n  let total = 0;\n  for (let i = 0; i < arr.length - 1; i += 1) {\n    total += arr[i];\n  }\n  return total;\n}\n"
+      },
+      "prompt": "src/sum.js 里的 sum() 结果总是少一个元素。修好它，让 sum([1,2,3,4]) === 10。",
+      "solution": {
+        "src/sum.js": "// 返回数组所有元素之和\nexport function sum(arr) {\n  let total = 0;\n  for (let i = 0; i < arr.length; i += 1) {\n    total += arr[i];\n  }\n  return total;\n}\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import('./src/sum.js').then(m => { const got = m.sum([1,2,3,4]); if (got !== 10) { console.error('sum([1,2,3,4]) =', got, 'expected 10'); process.exit(1); } const g2 = m.sum([]); if (g2 !== 0) { console.error('sum([]) =', g2, 'expected 0'); process.exit(1); } console.log('ok'); }).catch(e => { console.error(e.message); process.exit(1); });"
+        ],
+        "expectExit": 0,
+        "mustContain": "ok"
+      }
+    },
+    {
+      "id": "add-unit-test",
+      "title": "为已有函数补一个能捕获 bug 的测试",
+      "skillTags": ["test-driven-development", "test-generation"],
+      "workspace": {
+        "src/parsePort.js": "// 解析端口号：非法输入返回 null\nexport function parsePort(input) {\n  const n = parseInt(String(input).trim(), 10);\n  if (!Number.isInteger(n)) return null;\n  if (n < 1 || n > 65535) return null;\n  return n;\n}\n",
+        "test/parsePort.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { parsePort } from '../src/parsePort.js';\n\n// TODO: 只有一个 happy path 测试，边界情况完全没覆盖。\n// 已知 bug：parsePort('80abc') 返回 80，但它应当返回 null。\ntest('parsePort 接受合法端口', () => {\n  assert.equal(parsePort(8080), 8080);\n  assert.equal(parsePort('3000'), 3000);\n});\n"
+      },
+      "prompt": "src/parsePort.js 有个 bug：parsePort('80abc') 会返回 80，但它应该返回 null（parseInt 会宽容地截断尾部字符）。请修掉这个 bug，并在 test/parsePort.test.js 里补上能捕获它的测试（包括非法输入必须返回 null）。",
+      "solution": {
+        "src/parsePort.js": "// 解析端口号：非法输入返回 null\nexport function parsePort(input) {\n  const s = String(input).trim();\n  // 必须整体是十进制整数，Number() 的宽容截断会放过 '80abc'\n  if (!/^\\d+$/.test(s)) return null;\n  const n = Number(s);\n  if (!Number.isInteger(n)) return null;\n  if (n < 1 || n > 65535) return null;\n  return n;\n}\n",
+        "test/parsePort.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { parsePort } from '../src/parsePort.js';\n\ntest('parsePort 接受合法端口', () => {\n  assert.equal(parsePort(8080), 8080);\n  assert.equal(parsePort('3000'), 3000);\n  assert.equal(parsePort(' 80 '), 80);\n});\n\ntest('parsePort 拒绝尾部带字符的输入（回归 #80abc）', () => {\n  assert.equal(parsePort('80abc'), null);\n});\n\ntest('parsePort 拒绝越界与非法输入', () => {\n  assert.equal(parsePort('0'), null);\n  assert.equal(parsePort('65536'), null);\n  assert.equal(parsePort('abc'), null);\n  assert.equal(parsePort(''), null);\n  assert.equal(parsePort('80.5'), null);\n});\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import fs from 'node:fs'; import('./src/parsePort.js').then(m => { const p = m.parsePort; const cases = [[8080,8080],['3000',3000],[' 80 ',80],['80abc',null],['0',null],['65536',null],['abc',null],['',null],['80.5',null]]; for (const [inp, exp] of cases) { const got = p(inp); const ok = exp === null ? got === null : got === exp; if (!ok) { console.error('parsePort(' + JSON.stringify(inp) + ') =', got, 'expected', exp); process.exit(1); } } const t = fs.readFileSync('./test/parsePort.test.js', 'utf8'); if (!/80abc/.test(t)) { console.error('测试文件未补上捕获 80abc 的回归用例'); process.exit(1); } const assertCount = (t.match(/assert\\./g) || []).length; if (assertCount < 4) { console.error('测试覆盖不足：assert 数量应 >= 4，实际 ' + assertCount); process.exit(1); } console.log('fail 0'); }).catch(e => { console.error(e.message); process.exit(1); });"
+        ],
+        "expectExit": 0,
+        "mustContain": "fail 0"
+      }
+    },
+    {
+      "id": "dedupe-preserve-order",
+      "title": "实现保序去重",
+      "skillTags": ["code-review", "code-generation"],
+      "workspace": {
+        "src/unique.js": "// 返回去重后的数组（实现待补）\nexport function unique(arr) {\n  throw new Error('not implemented');\n}\n",
+        "test/unique.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { unique } from '../src/unique.js';\n\ntest('保序去重：保留首次出现的顺序', () => {\n  assert.deepEqual(unique([3, 1, 3, 2, 1]), [3, 1, 2]);\n});\n\ntest('空数组', () => {\n  assert.deepEqual(unique([]), []);\n});\n\ntest('NaN 视为同一个值', () => {\n  assert.deepEqual(unique([NaN, NaN, 1]), [NaN, 1]);\n});\n"
+      },
+      "prompt": "实现 src/unique.js 的 unique()，要求保序去重（保留首次出现的顺序），让 test/unique.test.js 全部通过。注意第三个测试：NaN 必须被视为同一个值（用 Set 就能满足，但请自己确认）。",
+      "solution": {
+        "src/unique.js": "// 返回去重后的数组（保序，NaN 视为同一个值）\n// 注：Set 使用 SameValueZero 语义，NaN === NaN 在 Set 中成立，\nexport function unique(arr) {\n  return [...new Set(arr)];\n}\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import('./src/unique.js').then(m => { const u = m.unique; const eq = (a,b) => a.length===b.length && a.every((v,i) => Object.is(v,b[i]) || (Number.isNaN(v) && Number.isNaN(b[i]))); const cases = [[[3,1,3,2,1],[3,1,2]],[[],[]],[[1,1,1],[1]],[[NaN,NaN,1],[NaN,1]],[[null,null,1],[null,1]]]; for (const [inp, exp] of cases) { let got; try { got = u(inp.slice()); } catch (e) { console.error('unique threw:', e.message); process.exit(1); } if (!Array.isArray(got) || !eq(got, exp)) { console.error('unique(' + JSON.stringify(inp) + ') =', JSON.stringify(got), 'expected', JSON.stringify(exp)); process.exit(1); } } console.log('fail 0'); }).catch(e => { console.error(e.message); process.exit(1); });"
+        ],
+        "expectExit": 0,
+        "mustContain": "fail 0"
+      }
+    },
+    {
+      "id": "refactor-extract-fn",
+      "title": "重构重复逻辑但不改行为",
+      "skillTags": ["code-review", "refactoring"],
+      "workspace": {
+        "src/report.js": "export function formatUsers(users) {\n  const lines = [];\n  for (const u of users) {\n    if (!u.active) continue;\n    lines.push(`${u.name.trim()}: ${String(u.email).trim().toLowerCase()}`);\n  }\n  return lines.join('\\n');\n}\n\nexport function formatAdmins(admins) {\n  const lines = [];\n  for (const a of admins) {\n    if (!a.active) continue;\n    lines.push(`${a.name.trim()}: ${String(a.email).trim().toLowerCase()}`);\n  }\n  return lines.join('\\n');\n}\n",
+        "test/report.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { formatUsers, formatAdmins } from '../src/report.js';\n\nconst u = [\n  { name: ' Ann ', email: ' ANN@X.COM ', active: true },\n  { name: 'Bob', email: 'bob@x.com', active: false },\n];\n\ntest('formatUsers 行为', () => {\n  assert.equal(formatUsers(u), 'Ann: ann@x.com');\n});\n\ntest('formatAdmins 行为', () => {\n  assert.equal(formatAdmins(u), 'Ann: ann@x.com');\n});\n\ntest('空数组返回空串', () => {\n  assert.equal(formatUsers([]), '');\n  assert.equal(formatAdmins([]), '');\n});\n",
+        "src/report.behaviors.md": "<!--\n本次重构的硬性约束（行为契约，测试已覆盖，不要改测试）\n-->\n\n# report.js 行为契约\n\n1. `formatUsers(users)` 与 `formatAdmins(list)` 的行为**必须完全一致**，只是入参语义不同。\n2. 输出格式：每行 `${name.trim()}: ${email.trim().toLowerCase()}`，行间 `\\n`。\n3. `active` 为假值（false/0/''/null/undefined）的记录必须跳过。\n4. 空输入返回空字符串（**不是** '\\n'）。\n5. 不得修改 `test/report.test.js`。\n"
+      },
+      "prompt": "src/report.js 里 formatUsers 和 formatAdmins 的逻辑完全重复。请抽出一个共享的内部函数消除重复，然后把两个导出改为调用它。行为契约见 src/report.behaviors.md，测试不能改。做完后 npm 测试必须全过。",
+      "solution": {
+        "src/report.js": "// 内部共享格式化：两个导出只是入参语义不同，行为完全一致\nfunction formatEntries(list) {\n  const lines = [];\n  for (const e of list) {\n    if (!e.active) continue;\n    lines.push(`${e.name.trim()}: ${String(e.email).trim().toLowerCase()}`);\n  }\n  return lines.join('\\n');\n}\n\nexport function formatUsers(users) {\n  return formatEntries(users);\n}\n\nexport function formatAdmins(admins) {\n  return formatEntries(admins);\n}\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import fs from 'node:fs'; import('./src/report.js').then(m => { const { formatUsers, formatAdmins } = m; const u = [{ name: ' Ann ', email: ' ANN@X.COM ', active: true }, { name: 'Bob', email: 'bob@x.com', active: false }]; const cases = [[() => formatUsers(u), 'Ann: ann@x.com'], [() => formatAdmins(u), 'Ann: ann@x.com'], [() => formatUsers([]), ''], [() => formatAdmins([]), ''], [() => formatUsers([{ name: ' A ', email: 'a@b.c', active: 0 }]), ''], [() => formatUsers([{ name: ' A ', email: 'a@b.c', active: true }]), 'A: a@b.c'], [() => formatAdmins([{ name: ' B ', email: 'B@C.D', active: true }]), 'B: b@c.d']]; for (const [fn, exp] of cases) { let got; try { got = fn(); } catch (e) { console.error('threw:', e.message); process.exit(1); } if (got !== exp) { console.error('got', JSON.stringify(got), 'expected', JSON.stringify(exp)); process.exit(1); } } const src = fs.readFileSync('./src/report.js', 'utf8'); const marker = 'toLowerCase()'; const hits = src.split(marker).length - 1; if (hits !== 1) { console.error('未消除重复：格式化逻辑应只出现 1 次，实际出现 ' + hits + ' 次'); process.exit(1); } const loopCount = (src.match(/for \\(/g) || []).length; if (loopCount > 1) { console.error('未消除重复：循环应只保留 1 处，实际 ' + loopCount + ' 处'); process.exit(1); } console.log('fail 0'); }).catch(e => { console.error(e.message); process.exit(1); });"
+        ],
+        "expectExit": 0,
+        "mustContain": "fail 0"
+      }
+    },
+    {
+      "id": "audit-dangerous-cmd",
+      "title": "找出并修掉脚本里的危险命令",
+      "skillTags": ["security", "code-review", "shell-safety"],
+      "workspace": {
+        "scripts/clean.sh": "#!/bin/sh\n# 清理构建产物\nset -eu\n\nTARGET=\"${1:-./dist}\"\n\necho \"cleaning $TARGET\"\nrm -rf \"$TARGET\"\necho \"done\"\n",
+        "test/clean.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport fs from 'node:fs';\nimport os from 'node:os';\nimport path from 'node:path';\nimport { execFileSync } from 'node:child_process';\nimport { fileURLToPath } from 'node:url';\n\nconst ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');\nconst SCRIPT = path.join(ROOT, 'scripts', 'clean.sh');\n\nfunction runIn(dir, arg) {\n  return execFileSync('sh', [SCRIPT, arg], { cwd: dir, encoding: 'utf8' });\n}\n\ntest('拒绝删除危险目标', () => {\n  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'clean-', ));\n  fs.mkdirSync(path.join(tmp, 'dist'));\n  fs.writeFileSync(path.join(tmp, 'dist', 'a.txt'), 'x');\n  fs.writeFileSync(path.join(tmp, 'keep.txt'), 'important');\n  // 目标是仓库根时，必须拒绝执行而不是清空\n  let rejected = false;\n  try {\n    runIn(tmp, '.');\n  } catch {\n    rejected = true;\n  }\n  assert.ok(rejected, '传入 . 时必须报错退出');\n  assert.ok(fs.existsSync(path.join(tmp, 'keep.txt')), 'keep.txt 不能被删');\n});\n"
+      },
+      "prompt": "scripts/clean.sh 接受用户传入的目录就直接 rm -rf，传 '.' 或 '/' 会把整个仓库或系统删掉。请在脚本里加一个自己的安全护栏（不依赖 rm 的内置行为）：目标是仓库根（. 或 ./）、系统根（/）、上级目录（..）、家目录（~）、或空值时，必须打印错误到 stderr 并以非零码退出，绝不执行删除。同时保证正常目标（如 ./dist）仍能正常清理。",
+      "solution": {
+        "scripts/clean.sh": "#!/bin/sh\n# 清理构建产物（带危险目标护栏）\nset -eu\n\nTARGET=\"${1:-./dist}\"\n\n# 归一化：去掉尾部斜杠后与危险目标逐一比较\nnormalized=$(printf '%s' \"$TARGET\" | sed 's:/*$::')\ncase \"$normalized\" in\n  ''|'.'|'/'|'..'|'~')\n    echo \"refusing to clean dangerous target: '$TARGET'\" >&2\n    exit 2\n    ;;\nesac\n\necho \"cleaning $TARGET\"\nrm -rf \"$TARGET\"\necho \"done\"\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import fs from 'node:fs'; import path from 'node:path'; const src = fs.readFileSync('./scripts/clean.sh', 'utf8'); const hasCase = /case\\s/.test(src) && /esac/.test(src); const testsDangerous = /['\\\"]?\\.\\.?['\\\"]?|['\\\"]\\/['\\\"]|['\\\"]~['\\\"]/.test(src); const hasExit = /exit\\s+[1-9]/.test(src); const printsErr = /echo[^\\n]*(>&2|1>&2)|>&2/.test(src); if (!hasCase) { console.error('缺少护栏：未找到 case/esac 危险目标判断'); process.exit(1); } if (!testsDangerous) { console.error('缺少护栏：未检测对 . / .. / ~ 等危险目标的比较'); process.exit(1); } if (!hasExit) { console.error('缺少护栏：危险分支未以非零码退出'); process.exit(1); } if (!printsErr) { console.error('缺少护栏：未向 stderr 输出错误信息'); process.exit(1); } if (!/rm -rf/.test(src)) { console.error('正常的清理逻辑被删除了'); process.exit(1); } if (!/\\$TARGET/.test(src)) { console.error('正常清理逻辑应仍作用于 $TARGET'); process.exit(1); } console.log('fail 0');"
+        ],
+        "expectExit": 0,
+        "mustContain": "fail 0"
+      }
+    }
+  ]
+}

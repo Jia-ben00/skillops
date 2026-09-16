@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkillOps 技能效能对照实验报告</title>
+</head>
+<body style="margin:0;font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background:#f1f5f9;color:#0f172a;">
+<div style="max-width:1020px;margin:0 auto;padding:20px 16px 48px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 style="font-size:22px;margin:0 0 4px;">SkillOps 技能效能对照实验报告</h1>
+      <div style="font-size:12px;color:#64748b;">
+        生成时间 2026/9/15 21:23:02 · 工具 v0.5.0 · 范围：examples/.cache/real-skills
+      </div>
+      <div style="font-size:12px;color:#475569;margin-top:6px;">
+        任务集 <strong>代码修复与测试套件</strong>（5 个任务） ·
+        每条件重复 10 次 · 判定阈值 10pp
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;"><div style="flex:1;min-width:130px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+        <div style="font-size:12px;color:#64748b;">被测技能</div>
+        <div style="font-size:20px;font-weight:700;color:#0f172a;margin-top:4px;font-variant-numeric:tabular-nums;">5</div>
+      </div><div style="flex:1;min-width:130px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+        <div style="font-size:12px;color:#64748b;">有效（lift ≥ 阈值）</div>
+        <div style="font-size:20px;font-weight:700;color:#059669;margin-top:4px;font-variant-numeric:tabular-nums;">2</div>
+      </div><div style="flex:1;min-width:130px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+        <div style="font-size:12px;color:#64748b;">装饰品（无显著提升）</div>
+        <div style="font-size:20px;font-weight:700;color:#d97706;margin-top:4px;font-variant-numeric:tabular-nums;">3</div>
+      </div><div style="flex:1;min-width:130px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+        <div style="font-size:12px;color:#64748b;">有害（拖后腿）</div>
+        <div style="font-size:20px;font-weight:700;color:#dc2626;margin-top:4px;font-variant-numeric:tabular-nums;">0</div>
+      </div><div style="flex:1;min-width:130px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+        <div style="font-size:12px;color:#64748b;">平均 lift</div>
+        <div style="font-size:20px;font-weight:700;color:#0e7490;margin-top:4px;font-variant-numeric:tabular-nums;">+7pp</div>
+      </div></div>
+
+  <h3 style="font-size:14px;margin:22px 0 12px;color:#0f172a;">A/B 对照结果（唯一自变量：是否注入 SKILL.md）</h3><div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;color:#1e293b;">code-review</span>
+          <span style="font-size:12px;font-weight:700;color:#059669;">+24pp 有效</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">注入技能</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:74%;height:14px;border-radius:4px;background:#059669;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">37/50 · 74%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">不注入（裸跑）</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:50%;height:14px;border-radius:4px;background:#94a3b8;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">25/50 · 50%</span>
+        </div>
+      </div><div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;color:#1e293b;">systematic-debugging</span>
+          <span style="font-size:12px;font-weight:700;color:#059669;">+20pp 有效</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">注入技能</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:70%;height:14px;border-radius:4px;background:#059669;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">35/50 · 70%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">不注入（裸跑）</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:50%;height:14px;border-radius:4px;background:#94a3b8;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">25/50 · 50%</span>
+        </div>
+      </div><div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;color:#1e293b;">test-driven-development</span>
+          <span style="font-size:12px;font-weight:700;color:#d97706;">+2pp 装饰品</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">注入技能</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:52%;height:14px;border-radius:4px;background:#d97706;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">26/50 · 52%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">不注入（裸跑）</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:50%;height:14px;border-radius:4px;background:#94a3b8;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">25/50 · 50%</span>
+        </div>
+      </div><div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;color:#1e293b;">diagnosing-bugs</span>
+          <span style="font-size:12px;font-weight:700;color:#d97706;">-4pp 装饰品</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">注入技能</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:46%;height:14px;border-radius:4px;background:#d97706;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">23/50 · 46%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">不注入（裸跑）</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:50%;height:14px;border-radius:4px;background:#94a3b8;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">25/50 · 50%</span>
+        </div>
+      </div><div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;color:#1e293b;">repo-runner</span>
+          <span style="font-size:12px;font-weight:700;color:#d97706;">-6pp 装饰品</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">注入技能</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:44%;height:14px;border-radius:4px;background:#d97706;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">22/50 · 44%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="width:96px;font-size:11px;color:#475569;text-align:right;">不注入（裸跑）</span>
+          <div style="flex:1;background:#f1f5f9;border-radius:4px;height:14px;position:relative;">
+            <div style="width:50%;height:14px;border-radius:4px;background:#94a3b8;"></div>
+          </div>
+          <span style="width:76px;font-size:11px;color:#334155;font-variant-numeric:tabular-nums;">25/50 · 50%</span>
+        </div>
+      </div>
+  <h3 style="font-size:14px;margin:22px 0 10px;color:#0f172a;">技能 lift 排行（相对 0 基准）</h3>
+    <div style="font-size:11px;color:#64748b;margin-bottom:8px;">中轴线为 0pp：向右为提升、向左为拖后腿。色标同判定（绿=有效 / 橙=装饰品 / 红=有害）。</div><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:170px;font-size:12px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="examples\.cache\real-skills\code-review">code-review</div>
+        <div style="flex:1;position:relative;height:16px;background:#f8fafc;border-radius:4px;">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#cbd5e1;"></div>
+          <div style="position:absolute;left:50%;width:50%;height:16px;background:#059669;border-radius:0 4px 4px 0;"></div>
+        </div>
+        <div style="width:72px;text-align:right;font-size:12px;color:#334155;font-variant-numeric:tabular-nums;">+24pp</div>
+      </div><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:170px;font-size:12px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="examples\.cache\real-skills\systematic-debugging">systematic-debugging</div>
+        <div style="flex:1;position:relative;height:16px;background:#f8fafc;border-radius:4px;">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#cbd5e1;"></div>
+          <div style="position:absolute;left:50%;width:41.66666666666667%;height:16px;background:#059669;border-radius:0 4px 4px 0;"></div>
+        </div>
+        <div style="width:72px;text-align:right;font-size:12px;color:#334155;font-variant-numeric:tabular-nums;">+20pp</div>
+      </div><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:170px;font-size:12px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="examples\.cache\real-skills\test-driven-development">test-driven-development</div>
+        <div style="flex:1;position:relative;height:16px;background:#f8fafc;border-radius:4px;">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#cbd5e1;"></div>
+          <div style="position:absolute;left:50%;width:4.166666666666666%;height:16px;background:#d97706;border-radius:0 4px 4px 0;"></div>
+        </div>
+        <div style="width:72px;text-align:right;font-size:12px;color:#334155;font-variant-numeric:tabular-nums;">+2pp</div>
+      </div><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:170px;font-size:12px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="examples\.cache\real-skills\diagnosing-bugs">diagnosing-bugs</div>
+        <div style="flex:1;position:relative;height:16px;background:#f8fafc;border-radius:4px;">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#cbd5e1;"></div>
+          <div style="position:absolute;right:50%;width:8.333333333333332%;height:16px;background:#d97706;border-radius:4px 0 0 4px;"></div>
+        </div>
+        <div style="width:72px;text-align:right;font-size:12px;color:#334155;font-variant-numeric:tabular-nums;">-4pp</div>
+      </div><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:170px;font-size:12px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="C:\Users\bing\.claude\skills\repo-runner">repo-runner</div>
+        <div style="flex:1;position:relative;height:16px;background:#f8fafc;border-radius:4px;">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#cbd5e1;"></div>
+          <div style="position:absolute;right:50%;width:12.5%;height:16px;background:#d97706;border-radius:4px 0 0 4px;"></div>
+        </div>
+        <div style="width:72px;text-align:right;font-size:12px;color:#334155;font-variant-numeric:tabular-nums;">-6pp</div>
+      </div>
+  <h3 style="font-size:14px;margin:22px 0 10px;color:#0f172a;">需要处理的技能（3 个）</h3><div style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
+        <div style="font-size:13px;color:#1e293b;">
+          <span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#d97706;color:#fff;font-weight:600;">装饰品</span>
+          <strong style="margin-left:6px;">test-driven-development</strong>
+          <span style="font-size:12px;color:#64748b;">— 注入前后成功率差 2 个百分点，低于阈值 10，未能证明有效</span>
+        </div>
+        <ul style="margin:6px 0 0 18px;padding:0;"><li style="font-size:11px;color:#64748b;">「修复求和函数的差一错误」A 3/10 vs B 5/10（-20pp）</li><li style="font-size:11px;color:#64748b;">「实现保序去重」A 3/10 vs B 6/10（-30pp）</li><li style="font-size:11px;color:#64748b;">「找出并修掉脚本里的危险命令」A 4/10 vs B 5/10（-10pp）</li></ul>
+      </div><div style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
+        <div style="font-size:13px;color:#1e293b;">
+          <span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#d97706;color:#fff;font-weight:600;">装饰品</span>
+          <strong style="margin-left:6px;">diagnosing-bugs</strong>
+          <span style="font-size:12px;color:#64748b;">— 注入前后成功率差 -4 个百分点，低于阈值 10，未能证明有效</span>
+        </div>
+        <ul style="margin:6px 0 0 18px;padding:0;"><li style="font-size:11px;color:#64748b;">「为已有函数补一个能捕获 bug 的测试」A 4/10 vs B 5/10（-10pp）</li><li style="font-size:11px;color:#64748b;">「实现保序去重」A 3/10 vs B 6/10（-30pp）</li><li style="font-size:11px;color:#64748b;">「找出并修掉脚本里的危险命令」A 4/10 vs B 5/10（-10pp）</li></ul>
+      </div><div style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
+        <div style="font-size:13px;color:#1e293b;">
+          <span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#d97706;color:#fff;font-weight:600;">装饰品</span>
+          <strong style="margin-left:6px;">repo-runner</strong>
+          <span style="font-size:12px;color:#64748b;">— 注入前后成功率差 -6 个百分点，低于阈值 10，未能证明有效</span>
+        </div>
+        <ul style="margin:6px 0 0 18px;padding:0;"><li style="font-size:11px;color:#64748b;">「修复求和函数的差一错误」A 3/10 vs B 5/10（-20pp）</li><li style="font-size:11px;color:#64748b;">「为已有函数补一个能捕获 bug 的测试」A 4/10 vs B 5/10（-10pp）</li><li style="font-size:11px;color:#64748b;">「实现保序去重」A 3/10 vs B 6/10（-30pp）</li></ul>
+      </div>
+  <h3 style="font-size:14px;margin:22px 0 10px;color:#0f172a;">逐任务明细（单元格：注入后通过率 / 裸跑通过率）</h3>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:640px;">
+      <thead><tr style="text-align:left;border-bottom:2px solid #e2e8f0;">
+        <th style="padding:6px 8px;font-size:12px;color:#64748b;">技能</th><th style="padding:6px 8px;font-size:11px;color:#64748b;text-align:center;" title="fix-off-by-one">修复求和函数的差一错误</th><th style="padding:6px 8px;font-size:11px;color:#64748b;text-align:center;" title="add-unit-test">为已有函数补一个能捕获 bug 的测试</th><th style="padding:6px 8px;font-size:11px;color:#64748b;text-align:center;" title="dedupe-preserve-order">实现保序去重</th><th style="padding:6px 8px;font-size:11px;color:#64748b;text-align:center;" title="refactor-extract-fn">重构重复逻辑但不改行为</th><th style="padding:6px 8px;font-size:11px;color:#64748b;text-align:center;" title="audit-dangerous-cmd">找出并修掉脚本里的危险命令</th>
+      </tr></thead><tbody><tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:6px 8px;font-size:12px;font-weight:600;color:#059669;white-space:nowrap;">code-review</td>
+        <td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="修复求和函数的差一错误｜A 8/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="为已有函数补一个能捕获 bug 的测试｜A 4/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            40% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="实现保序去重｜A 9/10 vs B 6/10｜退出码 1 ≠ 期望 0">
+            90% <span style="color:#94a3b8;">/</span> 60%
+          </td><td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="重构重复逻辑但不改行为｜A 8/10 vs B 4/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 40%
+          </td><td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="找出并修掉脚本里的危险命令｜A 8/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 50%
+          </td>
+      </tr><tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:6px 8px;font-size:12px;font-weight:600;color:#059669;white-space:nowrap;">systematic-debugging</td>
+        <td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="修复求和函数的差一错误｜A 8/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="为已有函数补一个能捕获 bug 的测试｜A 8/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="实现保序去重｜A 3/10 vs B 6/10｜退出码 1 ≠ 期望 0">
+            30% <span style="color:#94a3b8;">/</span> 60%
+          </td><td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="重构重复逻辑但不改行为｜A 8/10 vs B 4/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 40%
+          </td><td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="找出并修掉脚本里的危险命令｜A 8/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 50%
+          </td>
+      </tr><tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:6px 8px;font-size:12px;font-weight:600;color:#d97706;white-space:nowrap;">test-driven-development</td>
+        <td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="修复求和函数的差一错误｜A 3/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            30% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="为已有函数补一个能捕获 bug 的测试｜A 8/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="实现保序去重｜A 3/10 vs B 6/10｜退出码 1 ≠ 期望 0">
+            30% <span style="color:#94a3b8;">/</span> 60%
+          </td><td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="重构重复逻辑但不改行为｜A 8/10 vs B 4/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 40%
+          </td><td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="找出并修掉脚本里的危险命令｜A 4/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            40% <span style="color:#94a3b8;">/</span> 50%
+          </td>
+      </tr><tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:6px 8px;font-size:12px;font-weight:600;color:#d97706;white-space:nowrap;">diagnosing-bugs</td>
+        <td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="修复求和函数的差一错误｜A 8/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="为已有函数补一个能捕获 bug 的测试｜A 4/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            40% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="实现保序去重｜A 3/10 vs B 6/10｜退出码 1 ≠ 期望 0">
+            30% <span style="color:#94a3b8;">/</span> 60%
+          </td><td style="padding:6px 8px;text-align:center;background:#f1f5f9;color:#475569;font-size:11px;font-variant-numeric:tabular-nums;" title="重构重复逻辑但不改行为｜A 4/10 vs B 4/10｜退出码 1 ≠ 期望 0">
+            40% <span style="color:#94a3b8;">/</span> 40%
+          </td><td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="找出并修掉脚本里的危险命令｜A 4/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            40% <span style="color:#94a3b8;">/</span> 50%
+          </td>
+      </tr><tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:6px 8px;font-size:12px;font-weight:600;color:#d97706;white-space:nowrap;">repo-runner</td>
+        <td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="修复求和函数的差一错误｜A 3/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            30% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="为已有函数补一个能捕获 bug 的测试｜A 4/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            40% <span style="color:#94a3b8;">/</span> 50%
+          </td><td style="padding:6px 8px;text-align:center;background:#fee2e2;color:#991b1b;font-size:11px;font-variant-numeric:tabular-nums;" title="实现保序去重｜A 3/10 vs B 6/10｜退出码 1 ≠ 期望 0">
+            30% <span style="color:#94a3b8;">/</span> 60%
+          </td><td style="padding:6px 8px;text-align:center;background:#f1f5f9;color:#475569;font-size:11px;font-variant-numeric:tabular-nums;" title="重构重复逻辑但不改行为｜A 4/10 vs B 4/10｜退出码 1 ≠ 期望 0">
+            40% <span style="color:#94a3b8;">/</span> 40%
+          </td><td style="padding:6px 8px;text-align:center;background:#d1fae5;color:#065f46;font-size:11px;font-variant-numeric:tabular-nums;" title="找出并修掉脚本里的危险命令｜A 8/10 vs B 5/10｜退出码 1 ≠ 期望 0">
+            80% <span style="color:#94a3b8;">/</span> 50%
+          </td>
+      </tr></tbody>
+    </table></div>
+
+  <div style="margin-top:28px;padding:12px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#78350f;line-height:1.8;">
+    <strong>实验口径与限制：</strong><br>
+    1. <strong>对照组设计</strong>：A 组把 SKILL.md 完整注入模型上下文，B 组不注入任何技能内容。同一任务、同一后端、同一初始工作区、同一随机种子序列，唯一自变量是「是否注入技能」。<br>
+    2. <strong>客观判定</strong>：每个任务配一条判定命令，以退出码 + 输出片段断言裁决成败，全程无人工阅读环节，因此结论可复现、可进 CI。<br>
+    3. <strong>lift 含义</strong>：A 组通过率 − B 组通过率（百分点）。|lift| 小于阈值判为「装饰品」，负向超过阈值判为「有害」。<br>
+    4. <strong>⚠️ lift 是相对量，不是技能的绝对评分</strong>：它衡量的是「该技能在这套任务集上带来的增益」。
+       一个业内公认的好技能，如果任务集里没有考它擅长的动作，lift 就会接近 0——这不代表技能无用，只代表<strong>这套任务没考到它</strong>。
+       要让结论更有外部效度，应扩充任务集覆盖面，或按技能类型分组评测。<br>
+    5. <strong>提高可信度</strong>：单次运行（<code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">--repeat 1</code>）噪声很大，
+       建议 <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">--repeat 5</code> 以上；真实模型还有采样随机性，需更多重复才能稳定结论。<br>
+    6. 本次使用 <strong>mock 确定性后端</strong>：它不调用任何模型，用于验证实验框架本身的正确性。真实提升幅度需用 <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">--agent "&lt;你的 Agent CLI&gt;"</code> 复测。
+  </div>
+</div>
+</body>
+</html>

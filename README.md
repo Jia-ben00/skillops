@@ -7,6 +7,7 @@ SkillOps 是一个面向 Claude Code / Codex / Cursor / OpenCode 等 AI 编程�
 
 - **体检（doctor）**：扫描你安装的全部技能，量化每轮对话的上下文开销（常驻税 + 触发税），检测触发描述重叠、工作流冲突、高度重复、长期未更新、来源不明、危险脚本。
 - **评测（bench）**：内置 SkillBench 多套件质量门禁（basic / docs / codegen），给每个技能一个 0-100 的质量分；支持接入外部 Agent CLI 做实测（实验性）。
+- **实证（eval）**：**A/B 对照实验**——同一批任务，A 组注入 SKILL.md、B 组裸跑，其余条件完全相同，用「通过率之差」（lift）回答**"这个技能到底有没有用"**。判定全部由退出码 + 输出断言自动裁决，无人工环节，结论可复现、可进 CI。
 - **报告（report）**：生成自包含的单文件 HTML 可视化报告，可离线打开、可分享。
 - **治理（fix）**：给出停用 / 精简 / 合并 / 更新 / 复核建议；默认 dry-run 预览，`--apply` 才真正落盘（停用 = 重命名为 `*.disabled`，可逆）。
 - **团队同步（sync）**：以 Git 仓库为单一事实源，`push` 上收技能、`pull` 下发到全员、`gate` 做版本门禁（版本落后即拦截），让团队技能版本收敛。
@@ -66,6 +67,7 @@ node src/cli.js doctor
 | `doctor` | 体检：扫描 + 上下文税/冲突/重复/过期/安全 | `skillops doctor --json` |
 | `report` | 生成自包含 HTML 可视化报告 | `skillops report -o skillops-report.html` |
 | `bench` | 运行 SkillBench 基准评测（basic/docs/codegen） | `skillops bench --suite codegen --json` |
+| `eval` | **A/B 对照实验**：量化技能对任务成功率的真实提升（lift） | `skillops eval --repeat 10 -o eval.html` |
 | `fix` | 治理：默认 dry-run 预览，`--apply` 落盘 | `skillops fix --apply --target my-skill` |
 | `sync` | 团队同步：init/push/register/gate/pull | `skillops sync gate .team --local .` |
 | `market` | 技能市场：search/install/subscribe/update/list | `skillops market install owner/repo --apply` |
@@ -131,6 +133,84 @@ skillops bench --suite basic --json
 skillops bench --suite codegen --json
 skillops bench --agent "claude -p" --suite codegen   # 实验性：外部 Agent 实测
 ```
+
+## A/B 对照实验（eval）
+
+`bench` 回答的是「文档写得规不规范」，`eval` 回答的是「**这个技能到底有没有用**」。
+这两件事没有必然联系——一份 SKILL.md 完全可以 frontmatter 齐全、示例丰富，
+然后在真实任务里毫无作用。
+
+`eval` 用一个受控实验回答它：**同一批任务跑两遍，唯一自变量是「A 组注入 SKILL.md / B 组裸跑」**，
+其余条件（任务、提示词、判定器、重复次数）完全相同。指标是两者通过率的差：
+
+```
+lift = A 组通过率 − B 组通过率（百分点）
+```
+
+判定完全客观——每个任务自带判定命令，由**退出码 + 输出片段断言**裁决，无人工阅读环节，
+所以结论可复现、可进 CI。
+
+```bash
+# 默认用内置 codegen-basic 任务集，跑当前扫描到的全部技能
+skillops eval --repeat 10 -o eval.html
+
+# 指定任务集（内置：codegen-basic / security-basic，或自定义 JSON 路径）
+skillops eval --tasks security-basic --repeat 10
+
+# 调整判定阈值（百分点，默认 10）：|lift| 低于此值判为「装饰品」
+skillops eval --threshold 15
+
+# 接真实 Agent CLI（默认 mock 后端：确定性模拟，零模型调用，用于验证框架本身）
+skillops eval --agent "claude -p" --repeat 2
+```
+
+输出示例：
+
+```
+SkillOps A/B 对照实验 — 安全审查与注入防护套件（5 个任务 × 10 次重复）
+后端 mock（确定性模拟后端，零模型调用，可在 CI 中复现） | 判定阈值 10 个百分点
+
+结论：有效 3 个 | 装饰品 0 个 | 有害 2 个 | 平均 lift 12pp
+
+技能                       A组(注入)       B组(裸跑)       lift   判定
+-----------------------  -----------  -----------  -----  --
+code-review              41/50 (82%)  25/50 (50%)  +32pp  有效
+systematic-debugging     41/50 (82%)  25/50 (50%)  +32pp  有效
+repo-runner              41/50 (82%)  25/50 (50%)  +32pp  有效
+diagnosing-bugs          16/50 (32%)  25/50 (50%)  -18pp  有害
+test-driven-development  16/50 (32%)  25/50 (50%)  -18pp  有害
+```
+
+**结果怎么读**（三条口径，缺一条就会误读）：
+
+1. **`lift` 是相对量**，它衡量的是「该技能在这套任务集上的增益」。
+   任务集没考到它擅长的动作时，`lift` 会接近 0 —— **这不代表技能本身没用**。
+   所以结论的坐标是「**任务集 × 技能**」，不是技能的绝对评分。
+2. **单任务集会给出片面结论。** 实测同一批技能在两套任务集上结论可以相反：
+   `repo-runner` 在 `codegen-basic` 上是装饰品（−6pp），在 `security-basic` 上却是有效（+32pp）；
+   `test-driven-development` 在 `codegen-basic` 上看不出问题（+2pp），在 `security-basic` 上
+   却是**有害**（−18pp）。**只跑一套会把「有害」误判成「没用」。**
+3. **任务集本身必须双向有效**：每个任务要满足「给出参考解 → 判定通过」**且**
+   「原始代码 → 判定不通过」。缺任一半，任务就是废的（打不打补丁结果一样，lift 必然恒为 0）。
+   仓库自带校验脚本，每套新任务集发布前必跑：
+
+   ```bash
+   node scripts/check-taskset-two-way.mjs              # 校验全部内置任务集
+   node scripts/check-taskset-two-way.mjs security-basic
+   ```
+
+内置任务集：
+
+| 任务集 | 考点 | 任务数 |
+| --- | --- | --- |
+| `codegen-basic` | 代码生成 / 修 bug / 补测试 / 重构 | 5 |
+| `security-basic` | 安全审查：SQL 注入 / 日志泄密 / 路径穿越 / 签名校验 / 弱哈希 | 5 |
+
+> 真实案例：用 5 个公开技能跑这两套任务集，报告见
+> [`examples/skillops-eval-report.html`](examples/skillops-eval-report.html) 与
+> [`examples/skillops-eval-report-security.html`](examples/skillops-eval-report-security.html)。
+> 自举这 5 个技能：`node scripts/bootstrap-real-skills-node.mjs`
+> （走 codeload tarball，不依赖系统 `git`，受限网络下也可用）。
 
 ## 技能市场（market）
 
@@ -288,6 +368,7 @@ skillops/
 │   ├── skillfile.js      # 多格式解析：SKILL.md / .mdc → 统一技能模型
 │   ├── analyzers/        # 体检分析器（上下文税/冲突/安全/评分）
 │   ├── bench/            # SkillBench 套件（basic/docs/codegen）与运行器
+│   │   └── eval/         # A/B 对照实验（taskset/agent/runner/report + tasks/*.json）
 │   ├── report.js         # 自包含 HTML 可视化报告
 │   ├── fix.js            # 治理执行（dry-run 默认）
 │   ├── sync.js           # 团队同步 + 版本门禁（Git 单一事实源）
@@ -296,6 +377,7 @@ skillops/
 │   ├── server.js         # Web 工作台（仪表盘 + 治理 API）
 │   └── web/console.html  # 控制台前端（零依赖，SVG 图表）
 ├── test/                 # 测试与示例技能 fixtures（含 .mdc）
+├── scripts/              # fixture 生成、发布构建、真实技能自举、任务集双向校验
 └── docker/               # 团队版部署
 ```
 
@@ -309,10 +391,13 @@ skillops/
 - [x] CI 集成：GitHub Action 自动跑 gate（`skill-gate` composite action + 自带 CI workflow）
 - [x] 技能市场：扫描公开仓库（search）+ 安装（install）+ 订阅源更新（subscribe/update）
 - [x] Web 工作台：报告可视化 + 治理操作界面（serve）
+- [x] **A/B 对照实验（eval）**：以「是否注入 SKILL.md」为唯一自变量的受控实验，量化 lift；
+      两套内置任务集（codegen-basic / security-basic）+ 双向有效性校验脚本
 
 ### 下一步（Ideas）
 
 - [ ] 更多 SkillBench 套件（security / i18n / 长文档）
+- [ ] 更多 eval 任务集（refactor / agent 编排），并补真实模型（`--agent`）的实测数据
 - [ ] 市场搜索接入 GitHub 话题/自建索引，提升发现质量
 - [ ] 工作台鉴权与多目录管理（团队部署）
 
@@ -322,6 +407,7 @@ skillops/
 node scripts/gen-fixtures.js   # 重新生成确定性测试 fixture
 npm test                       # node --test
 npm run demo:report            # 生成演示报告
+npm run demo:eval              # 跑一次 A/B 对照实验（内置 codegen-basic）
 ```
 
 ## License

@@ -8,6 +8,10 @@ import { runAnalysis } from './analyzers/index.js';
 import { buildReport } from './report.js';
 import { loadSuite, listSuites } from './bench/suite.js';
 import { runSuite } from './bench/runner.js';
+import { loadTaskSet, listTaskSets } from './bench/eval/taskset.js';
+import { runEval, VERDICT_LABEL, verdictExplanation } from './bench/eval/runner.js';
+import { describeBackend } from './bench/eval/agent.js';
+import { buildEvalReport } from './bench/eval/report.js';
 import { plan, execute } from './fix.js';
 import { startServer, setSkillsDir, setPort } from './server.js';
 import { estimateTokens } from './util.js';
@@ -20,6 +24,7 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
   skillops doctor [目录...]           体检：扫描 + 上下文税/冲突/重复/过期/安全
   skillops report [目录...]          生成自包含 HTML 可视化报告（默认 skillops-report.html）
   skillops bench [--suite <id>]      运行 SkillBench 基准评测（默认套件 basic）
+  skillops eval [目录...]             A/B 对照实验：量化技能对任务成功率的真实提升（lift）
   skillops fix [--apply] [--target <n>]  治理：默认 dry-run 预览，--apply 才落盘
   skillops sync <init|push|register|gate|pull> <teamRepo>  团队策略：Git 单一事实源 + 版本门禁
   skillops market <search|install|subscribe|update|list>  技能市场：扫描公开仓库 / 订阅源更新
@@ -28,10 +33,14 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
   skillops init                      生成 .skillopsrc.json 配置模板
 
 选项:
-  --json                输出 JSON（doctor / bench）
+  --json                输出 JSON（doctor / bench / eval）
   -o, --output <path>   报告输出路径
   --suite <id>          评测套件（可用: ${listSuites().join(', ')}），或自定义 JSON 路径
-  --agent <cmd>         SkillBench 实验模式：用外部 Agent CLI 实测（如 "claude -p"）
+  --tasks <id|path>     eval 任务集（可用: ${listTaskSets().join(', ')}），或自定义 JSON 路径
+  --agent <cmd>         后端选择：bench 用外部 Agent CLI 实测（如 "claude -p"）；
+                        eval 用 "mock"（默认，确定性零成本）或外部 Agent CLI
+  --repeat <n>          eval 每个条件的重复次数（默认 3；次数越多噪声越小，成本线性增长）
+  --threshold <n>       eval 判定阈值（百分点，默认 10）：|lift| 低于此值判为装饰品
   --add <dir>           追加扫描目录（可重复）
   --no-defaults         只扫描显式指定目录（不探测 ~/.claude/skills 等默认位置）
   --tool <name>         只体检指定工具格式：claude/codex（SKILL.md）或 cursor（.mdc），默认全部
@@ -53,11 +62,13 @@ const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
   skillops doctor ~/.claude/skills --json
   skillops report --add ./my-skills -o my-report.html
   skillops bench --suite basic --json
+  skillops eval test/fixtures --no-defaults --repeat 3
+  skillops eval --tasks codegen-basic --agent "claude -p" --repeat 2 -o eval.html
   skillops fix --apply --target my-skill
 `;
 
 function parseArgs(argv) {
-  const flags = { dirs: [], add: [], json: false, output: null, suite: null, agent: null, taskTemplate: null, dryRun: false, apply: false, target: null, config: null, port: null, version: false, help: false, noDefaults: false, tool: null, from: null, to: null, local: null, strict: false, limit: 10, skill: 0, force: false };
+  const flags = { dirs: [], add: [], json: false, output: null, suite: null, agent: null, taskTemplate: null, dryRun: false, apply: false, target: null, config: null, port: null, version: false, help: false, noDefaults: false, tool: null, from: null, to: null, local: null, strict: false, limit: 10, skill: 0, force: false, tasks: null, repeat: 3, threshold: 10 };
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -68,7 +79,10 @@ function parseArgs(argv) {
     else if (a === '-h' || a === '--help') flags.help = true;
     else if (a === '-o' || a === '--output') flags.output = argv[++i];
     else if (a === '--suite') flags.suite = argv[++i];
+    else if (a === '--tasks') flags.tasks = argv[++i];
     else if (a === '--agent') flags.agent = argv[++i];
+    else if (a === '--repeat') flags.repeat = Math.max(1, Number(argv[++i]) || 1);
+    else if (a === '--threshold') flags.threshold = Number(argv[++i]) || 0;
     else if (a === '--task-template') flags.taskTemplate = argv[++i];
     else if (a === '--target') flags.target = argv[++i];
     else if (a === '--config') flags.config = argv[++i];
@@ -120,6 +134,55 @@ function textDoctor(analysis) {
     out.push('');
     out.push('治理建议（skillops fix 预览）:');
     for (const s of analysis.suggestions) out.push(`  ${s.action}: ${s.skill} — ${s.reason}`);
+  }
+  return out.join('\n');
+}
+
+function textEval(result) {
+  const out = [];
+  const t = result.totals;
+  out.push(`SkillOps A/B 对照实验 — ${result.taskset.name}（${result.taskset.taskCount} 个任务 × ${result.config.repeat} 次重复）`);
+  out.push(`后端 ${describeBackend({ name: result.backend })} | 判定阈值 ${result.config.threshold} 个百分点`);
+  out.push('');
+  out.push(
+    `结论：有效 ${t.skillCount - t.decorativeCount - t.harmfulCount} 个 | 装饰品 ${t.decorativeCount} 个 | 有害 ${t.harmfulCount} 个 | 平均 lift ${t.avgLift}pp`,
+  );
+  out.push('');
+  out.push(
+    printTable(
+      ['技能', 'A组(注入)', 'B组(裸跑)', 'lift', '判定'],
+      result.skills.map((s) => [
+        s.skill,
+        `${s.treatment.passed}/${s.treatment.total} (${Math.round(s.treatment.rate * 100)}%)`,
+        `${s.control.passed}/${s.control.total} (${Math.round(s.control.rate * 100)}%)`,
+        `${s.lift > 0 ? '+' : ''}${s.lift}pp`,
+        VERDICT_LABEL[s.verdict] || s.verdict,
+      ]),
+    ),
+  );
+
+  if (result.decorativeSkills.length || result.harmfulSkills.length) {
+    out.push('');
+    out.push('需要处理的技能：');
+    for (const s of result.skills.filter((x) => x.verdict !== 'useful')) {
+      out.push(`  [${VERDICT_LABEL[s.verdict]}] ${s.skill} — ${verdictExplanation(s.lift, result.config.threshold)}`);
+      const weakest = s.tasks.filter((task) => task.lift < 0).slice(0, 2);
+      for (const task of weakest) {
+        out.push(`      退化于「${task.title}」：A 组 ${task.treatment.passed}/${task.treatment.total} vs B 组 ${task.control.passed}/${task.control.total}`);
+      }
+    }
+  }
+
+  out.push('');
+  out.push('口径说明：');
+  out.push('  · lift = A 组通过率 − B 组通过率（百分点）。唯一自变量是「是否注入 SKILL.md」，其余条件完全相同。');
+  out.push('  · 判定成功后由判定命令客观裁决（退出码 + 输出片段断言），无人工阅读环节，故结论可复现。');
+  out.push('  · lift 是相对量：它衡量该技能在这套任务集上的增益。任务集没考到它擅长的动作时，lift 会接近 0。');
+  if (result.config.repeat < 3) {
+    out.push(`  · 当前 repeat=${result.config.repeat}，噪声较大，建议 --repeat 5 以上再下结论。`);
+  }
+  if (result.backend === 'mock') {
+    out.push('  · 当前为 mock 后端：确定性模拟，用于验证框架本身；真实提升幅度需用 --agent 接真实 Agent CLI 复测。');
   }
   return out.join('\n');
 }
@@ -245,6 +308,43 @@ async function main() {
         console.log('');
         console.log('注: Agent 实测为实验功能，成本与 token 为估算值。');
       }
+    }
+    return;
+  }
+
+  if (flags.command === 'eval') {
+    const taskset = loadTaskSet(flags.tasks);
+    if (!skills.length) {
+      console.log('未扫描到任何技能，无法运行 A/B 实验。');
+      return;
+    }
+    const evalSkills = flags.tool
+      ? skills.filter((s) => s.format === (flags.tool === 'cursor' ? 'cursor-rule' : 'agent-skill'))
+      : skills;
+
+    const result = await runEval(evalSkills, taskset, {
+      agent: flags.agent,
+      repeat: flags.repeat,
+      threshold: flags.threshold,
+      onProgress: ({ done, total, skill }) => {
+        if (!flags.json && total > 1 && done < total) {
+          process.stderr.write(`  已评测 ${done}/${total} — ${skill}\n`);
+        }
+      },
+    });
+
+    if (flags.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    console.log(textEval(result));
+
+    if (flags.output) {
+      const html = buildEvalReport(result, { version: VERSION, scope: flags.dirs.join(', ') || '当前扫描范围' });
+      fs.writeFileSync(flags.output, html, 'utf8');
+      console.log('');
+      console.log(`HTML 报告已生成: ${flags.output}`);
     }
     return;
   }

@@ -1,7 +1,7 @@
 {
   "name": "skillops-cli",
-  "version": "0.5.0",
-  "description": "AI 编程 Skill 的治理与评测平台：体检（上下文税/触发冲突/重复/过期/安全）→ SkillBench 基准评测 → 可视化报告 → 团队同步/版本门禁 → 技能市场 → MCP 接入 → 一键治理",
+  "version": "0.6.0",
+  "description": "AI 编程 Skill 的治理与评测平台：体检（上下文税/触发冲突/重复/过期/安全）→ SkillBench 基准评测 → A/B 对照实验（lift）→ 可视化报告 → 团队同步/版本门禁 → 技能市场 → MCP 接入 → 一键治理",
   "type": "module",
   "bin": {
     "skillops": "./src/cli.js"
@@ -11,10 +11,11 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test \"test/*.test.js\"",
     "demo:doctor": "node src/cli.js doctor test/fixtures --no-defaults --json",
     "demo:report": "node src/cli.js report test/fixtures --no-defaults -o skillops-report.html",
     "demo:bench": "node src/cli.js bench test/fixtures --no-defaults --suite basic",
+    "demo:eval": "node src/cli.js eval test/fixtures --no-defaults --repeat 3",
     "demo:sync": "node src/cli.js sync init .team && node src/cli.js sync push .team --from test/fixtures --apply && node src/cli.js sync gate .team --local test/fixtures"
   },
   "keywords": [
@@ -24,6 +25,7 @@
     "agent",
     "skillops",
     "benchmark",
+    "ab-testing",
     "mcp"
   ],
   "license": "MIT",

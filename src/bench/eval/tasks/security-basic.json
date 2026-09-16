@@ -1,0 +1,128 @@
+{
+  "id": "security-basic",
+  "name": "安全审查与注入防护套件",
+  "description": "5 个以「安全审查 / 注入防护 / 密钥泄露」为核心的任务，用于 A/B 对照实验。与 codegen-basic 的关键差异：本套任务考的是「识别并消除安全隐患」这类动作，而非通用编码能力，因此能测到 security-review 一类技能的作用。",
+  "verifyTimeoutMs": 15000,
+  "tasks": [
+    {
+      "id": "sql-string-concat",
+      "title": "修掉 SQL 字符串拼接注入",
+      "skillTags": ["security", "security-review", "code-review", "sql-injection"],
+      "workspace": {
+        "src/findUser.js": "// 按用户名查用户\nexport function buildQuery(name) {\n  return `SELECT id, name FROM users WHERE name = '${name}'`;\n}\n\nexport function findUser(db, name) {\n  return db.query(buildQuery(name));\n}\n",
+        "test/findUser.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { buildQuery } from '../src/findUser.js';\n\ntest('正常用户名生成预期查询', () => {\n  assert.match(buildQuery('alice'), /alice/);\n});\n\ntest('恶意输入不得改变语句结构（回归）', () => {\n  // 该用例当前会失败：拼接让攻击者能闭合引号并追加条件\n  assert.ok(\n    !buildQuery(\"x' OR '1'='1\").includes(\"OR '1'='1'\"),\n    '恶意输入被原样拼进了 SQL'\n  );\n});\n"
+      },
+      "prompt": "src/findUser.js 用模板字符串把用户名直接拼进 SQL，存在注入风险。请改成参数化查询（占位符 + 参数数组），让 buildQuery 只返回带占位符的语句、参数走第二个返回值或独立函数，并保证 test/findUser.test.js 通过。不要改动 test/ 下的文件。",
+      "solution": {
+        "src/findUser.js": "// 按用户名查用户（参数化，杜绝注入）\nexport function buildQuery() {\n  return 'SELECT id, name FROM users WHERE name = ?';\n}\n\nexport function buildParams(name) {\n  return [name];\n}\n\nexport function findUser(db, name) {\n  return db.query(buildQuery(), buildParams(name));\n}\n",
+        "test/findUser.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { buildQuery } from '../src/findUser.js';\n\ntest('正常用户名生成预期查询', () => {\n  assert.match(buildQuery('alice'), /alice/);\n});\n\ntest('恶意输入不得改变语句结构（回归）', () => {\n  // 该用例当前会失败：拼接让攻击者能闭合引号并追加条件\n  assert.ok(\n    !buildQuery(\"x' OR '1'='1\").includes(\"OR '1'='1'\"),\n    '恶意输入被原样拼进了 SQL'\n  );\n});\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import fs from 'node:fs'; const src = fs.readFileSync('./src/findUser.js', 'utf8'); import('./src/findUser.js').then(m => { const { buildQuery, findUser } = m; let q; try { q = buildQuery(\"x' OR '1'='1\"); } catch (e) { console.error('buildQuery threw:', e.message); process.exit(1); } if (typeof q !== 'string') { console.error('buildQuery 应返回字符串'); process.exit(1); } if (/OR '1'='1'/.test(q)) { console.error('恶意输入被拼进了 SQL：' + q); process.exit(1); } if (/\\$\\{/.test(src)) { console.error('源码仍在使用模板字符串插值拼接 SQL'); process.exit(1); } if (!/[?$][0-9]?/.test(q)) { console.error('查询未使用占位符：' + q); process.exit(1); } const calls = []; const db = { query: (...a) => { calls.push(a); return []; } }; try { findUser(db, \"x' OR '1'='1\"); } catch (e) { console.error('findUser threw:', e.message); process.exit(1); } if (!calls.length) { console.error('findUser 未调用 db.query'); process.exit(1); } const flat = JSON.stringify(calls); if (/OR '1'='1'/.test(flat) && !/\\[\\[?\"?\\]?/.test(flat)) { console.error('参数未与语句分离，恶意值仍出现在语句位置'); process.exit(1); } if (calls[0].length < 2) { console.error('db.query 应收到至少两个参数（语句 + 参数），实际 ' + calls[0].length + ' 个'); process.exit(1); } console.log('fail 0'); }).catch(e => { console.error(e.message); process.exit(1); });"
+        ],
+        "expectExit": 0,
+        "mustContain": "fail 0"
+      }
+    },
+    {
+      "id": "redact-secret-in-log",
+      "title": "日志里不得打印密钥",
+      "skillTags": ["security", "security-review", "logging", "code-review"],
+      "workspace": {
+        "src/logger.js": "// 打印请求上下文，便于排查问题\nexport function logRequest(cfg) {\n  const line = `[req] url=${cfg.url} token=${cfg.token} user=${cfg.user}`;\n  console.log(line);\n  return line;\n}\n",
+        "test/logger.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { logRequest } from '../src/logger.js';\n\ntest('日志包含 url 与 user', () => {\n  const out = logRequest({ url: '/a', token: 'SECRET-TOKEN-123', user: 'bob' });\n  assert.match(out, /\\/a/);\n  assert.match(out, /bob/);\n});\n\ntest('日志不得包含明文 token（回归）', () => {\n  const out = logRequest({ url: '/a', token: 'SECRET-TOKEN-123', user: 'bob' });\n  assert.ok(!out.includes('SECRET-TOKEN-123'), '明文 token 被写进了日志');\n});\n"
+      },
+      "prompt": "src/logger.js 把 token 明文打进了日志。请修掉：日志里 token 必须被打码（保留可辨识的前缀或末几位皆可，但不得出现完整原值），同时 url 与 user 仍要正常输出。不要改动 test/ 下的文件。",
+      "solution": {
+        "src/logger.js": "// 打印请求上下文，便于排查问题（敏感字段打码）\nfunction mask(v) {\n  const s = String(v ?? '');\n  if (s.length <= 4) return '***';\n  return s.slice(0, 2) + '***' + s.slice(-2);\n}\n\nexport function logRequest(cfg) {\n  const line = `[req] url=${cfg.url} token=${mask(cfg.token)} user=${cfg.user}`;\n  console.log(line);\n  return line;\n}\n",
+        "test/logger.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { logRequest } from '../src/logger.js';\n\ntest('日志包含 url 与 user', () => {\n  const out = logRequest({ url: '/a', token: 'SECRET-TOKEN-123', user: 'bob' });\n  assert.match(out, /\\/a/);\n  assert.match(out, /bob/);\n});\n\ntest('日志不得包含明文 token（回归）', () => {\n  const out = logRequest({ url: '/a', token: 'SECRET-TOKEN-123', user: 'bob' });\n  assert.ok(!out.includes('SECRET-TOKEN-123'), '明文 token 被写进了日志');\n});\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import('./src/logger.js').then(m => { const { logRequest } = m; const secret = 'SECRET-TOKEN-123'; const out = logRequest({ url: '/a', token: secret, user: 'bob' }); if (typeof out !== 'string') { console.error('返回值应为字符串'); process.exit(1); } if (out.includes(secret)) { console.error('明文 token 出现在日志：' + out); process.exit(1); } if (!/\\/a/.test(out)) { console.error('url 丢失：' + out); process.exit(1); } if (!/bob/.test(out)) { console.error('user 丢失：' + out); process.exit(1); } const s2 = logRequest({ url: '/b', token: 'ABCDEFGHIJKLMNOP', user: 'eve' }); if (s2.includes('ABCDEFGHIJKLMNOP')) { console.error('较长 token 同样未打码'); process.exit(1); } console.log('fail 0'); }).catch(e => { console.error(e.message); process.exit(1); });"
+        ],
+        "expectExit": 0,
+        "mustContain": "fail 0"
+      }
+    },
+    {
+      "id": "path-traversal-guard",
+      "title": "堵住路径穿越",
+      "skillTags": ["security", "security-review", "path-traversal", "code-review"],
+      "workspace": {
+        "src/readFile.js": "import path from 'node:path';\n\n// 在 baseDir 下按相对路径读取文件\nexport function resolveWithin(baseDir, rel) {\n  return path.join(baseDir, rel);\n}\n",
+        "test/readFile.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport path from 'node:path';\nimport { resolveWithin } from '../src/readFile.js';\n\nconst BASE = path.resolve('/srv/data');\n\ntest('正常相对路径仍解析到 base 内', () => {\n  assert.equal(resolveWithin(BASE, 'a/b.txt'), path.join(BASE, 'a', 'b.txt'));\n});\n\ntest('穿越路径必须被拒绝（回归）', () => {\n  assert.throws(() => resolveWithin(BASE, '../../etc/passwd'));\n});\n"
+      },
+      "prompt": "src/readFile.js 的 resolveWithin 直接用 path.join，传入 '../../etc/passwd' 就能逃出 baseDir。请让它只接受解析后仍位于 baseDir 内部的路径，越界时抛错；正常相对路径行为不变。不要改动 test/ 下的文件。",
+      "solution": {
+        "src/readFile.js": "import path from 'node:path';\n\n// 在 baseDir 下按相对路径解析，越界即抛错\nexport function resolveWithin(baseDir, rel) {\n  const base = path.resolve(baseDir);\n  const target = path.resolve(base, rel);\n  const prefix = base.endsWith(path.sep) ? base : base + path.sep;\n  if (target !== base && !target.startsWith(prefix)) {\n    throw new Error(`path escapes base directory: ${rel}`);\n  }\n  return target;\n}\n",
+        "test/readFile.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport path from 'node:path';\nimport { resolveWithin } from '../src/readFile.js';\n\nconst BASE = path.resolve('/srv/data');\n\ntest('正常相对路径仍解析到 base 内', () => {\n  assert.equal(resolveWithin(BASE, 'a/b.txt'), path.join(BASE, 'a', 'b.txt'));\n});\n\ntest('穿越路径必须被拒绝（回归）', () => {\n  assert.throws(() => resolveWithin(BASE, '../../etc/passwd'));\n});\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import path from 'node:path'; import('./src/readFile.js').then(m => { const { resolveWithin } = m; const BASE = path.resolve('/srv/data'); const good = resolveWithin(BASE, 'a/b.txt'); if (good !== path.join(BASE, 'a', 'b.txt')) { console.error('正常路径解析变了：' + good); process.exit(1); } const bads = ['../../etc/passwd', '../x', '/etc/passwd', 'a/../../b', 'a/../../data-evil/x']; for (const b of bads) { let threw = false; let got = null; try { got = resolveWithin(BASE, b); } catch { threw = true; } if (!threw) { console.error('未拒绝穿越输入 ' + JSON.stringify(b) + '，返回 ' + got); process.exit(1); } } const inside = resolveWithin(BASE, 'deep/nested/ok.txt'); if (!inside.startsWith(path.join(BASE, 'deep'))) { console.error('正常深层路径被误拒：' + inside); process.exit(1); } console.log('fail 0'); }).catch(e => { console.error(e.message); process.exit(1); });"
+        ],
+        "expectExit": 0,
+        "mustContain": "fail 0"
+      }
+    },
+    {
+      "id": "verify-signature-not-bypassable",
+      "title": "签名校验不得可跳过",
+      "skillTags": ["security", "security-review", "authentication", "code-review"],
+      "workspace": {
+        "src/verify.js": "import crypto from 'node:crypto';\n\n// 校验 webhook 签名\n// 注意：算法与密钥来自请求体，因此调用方可以自行选择算法\nfunction timingSafeEqualHex(a, b) {\n  const ba = Buffer.from(a, 'utf8');\n  const bb = Buffer.from(b, 'utf8');\n  if (ba.length !== bb.length) return false;\n  return crypto.timingSafeEqual(ba, bb);\n}\n\nexport function verifySignature(payload, provided) {\n  const { algorithm, secret } = JSON.parse(payload);\n  const expected = crypto.createHmac(algorithm, secret).update(payload).digest('hex');\n  return timingSafeEqualHex(expected, String(provided));\n}\n",
+        "test/verify.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport crypto from 'node:crypto';\nimport { verifySignature } from '../src/verify.js';\n\ntest('正确签名通过', () => {\n  const payload = JSON.stringify({ algorithm: 'sha256', secret: 's3cr3t', amount: 10 });\n  const good = crypto.createHmac('sha256', 's3cr3t').update(payload).digest('hex');\n  assert.equal(verifySignature(payload, good), true);\n});\n\ntest('错误签名被拒绝', () => {\n  const payload = JSON.stringify({ algorithm: 'sha256', secret: 's3cr3t', amount: 10 });\n  assert.equal(verifySignature(payload, 'deadbeef'), false);\n});\n"
+      },
+      "prompt": "src/verify.js 让签名算法和密钥来自被校验的 payload 本身——攻击者只要在 body 里写 algorithm='md5' 并自选 secret 就能伪造签名。请改为由函数参数传入受信任的 algorithm 与 secret，payload 中的同名字段一律不可采信；同时保持两个既有测试通过、并保证比较仍为常量时间。不要改动 test/ 下的文件。",
+      "solution": {
+        "src/verify.js": "import crypto from 'node:crypto';\n\n// 校验 webhook 签名\n// 算法与密钥必须由调用方作为受信任配置传入，绝不从被校验的 payload 中读取。\nfunction timingSafeEqualHex(a, b) {\n  const ba = Buffer.from(a, 'utf8');\n  const bb = Buffer.from(b, 'utf8');\n  if (ba.length !== bb.length) return false;\n  return crypto.timingSafeEqual(ba, bb);\n}\n\nexport function verifySignature(payload, provided, options = {}) {\n  const algorithm = options.algorithm || 'sha256';\n  const secret = options.secret;\n  if (!secret) return false;\n  const expected = crypto.createHmac(algorithm, secret).update(payload).digest('hex');\n  return timingSafeEqualHex(expected, String(provided));\n}\n",
+        "test/verify.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport crypto from 'node:crypto';\nimport { verifySignature } from '../src/verify.js';\n\ntest('正确签名通过', () => {\n  const payload = JSON.stringify({ algorithm: 'sha256', secret: 's3cr3t', amount: 10 });\n  const good = crypto.createHmac('sha256', 's3cr3t').update(payload).digest('hex');\n  assert.equal(verifySignature(payload, good, { algorithm: 'sha256', secret: 's3cr3t' }), true);\n});\n\ntest('错误签名被拒绝', () => {\n  const payload = JSON.stringify({ algorithm: 'sha256', secret: 's3cr3t', amount: 10 });\n  assert.equal(verifySignature(payload, 'deadbeef', { algorithm: 'sha256', secret: 's3cr3t' }), false);\n});\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import fs from 'node:fs'; import crypto from 'node:crypto'; const src = fs.readFileSync('./src/verify.js', 'utf8'); import('./src/verify.js').then(m => { const { verifySignature } = m; const TRUST = { algorithm: 'sha256', secret: 'REAL-SECRET' }; const payload = JSON.stringify({ algorithm: 'md5', secret: 'attacker-chosen', amount: 999 }); const forged = crypto.createHmac('md5', 'attacker-chosen').update(payload).digest('hex'); let r; try { r = verifySignature(payload, forged, TRUST); } catch (e) { console.error('调用抛错：' + e.message); process.exit(1); } if (r !== false) { console.error('伪造签名被接受了（算法/密钥仍取自 payload）'); process.exit(1); } const good = crypto.createHmac('sha256', 'REAL-SECRET').update(payload).digest('hex'); if (verifySignature(payload, good, TRUST) !== true) { console.error('合法签名被误拒'); process.exit(1); } if (!/timingSafeEqual/.test(src)) { console.error('常量时间比较被移除'); process.exit(1); } const body = src.replace(/\\/\\*[\\s\\S]*?\\*\\//g, '').replace(/\\/\\/.*$/gm, ''); if (/JSON\\.parse\\(payload\\)[\\s\\S]{0,200}secret/.test(body) === false && /const\\s*\\{[^}]*secret[^}]*\\}\\s*=\\s*JSON\\.parse/.test(body)) { console.error('仍从 payload 中解构 secret'); process.exit(1); } console.log('fail 0'); }).catch(e => { console.error(e.message); process.exit(1); });"
+        ],
+        "expectExit": 0,
+        "mustContain": "fail 0"
+      }
+    },
+    {
+      "id": "reject-weak-hash",
+      "title": "拒绝弱哈希用于口令存储",
+      "skillTags": ["security", "security-review", "cryptography", "code-review"],
+      "workspace": {
+        "src/password.js": "import crypto from 'node:crypto';\n\n// 存储口令哈希\nexport function hashPassword(plain, salt) {\n  return crypto.createHash('md5').update(salt + plain).digest('hex');\n}\n\nexport function verifyPassword(plain, salt, stored) {\n  return hashPassword(plain, salt) === stored;\n}\n",
+        "test/password.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { hashPassword, verifyPassword } from '../src/password.js';\n\ntest('同一口令与盐得到同一哈希', () => {\n  assert.equal(hashPassword('pw', 'salt'), hashPassword('pw', 'salt'));\n});\n\ntest('校验通过正确口令', () => {\n  const h = hashPassword('pw', 'salt');\n  assert.equal(verifyPassword('pw', 'salt', h), true);\n});\n\ntest('校验拒绝错误口令', () => {\n  const h = hashPassword('pw', 'salt');\n  assert.equal(verifyPassword('nope', 'salt', h), false);\n});\n"
+      },
+      "prompt": "src/password.js 用 MD5（且是「盐+口令」的朴素拼接）来存口令，强度不足、也容易受长度扩展与 GPU 爆破。请换成加盐的慢哈希（scrypt / pbkdf2 均可），并使 compare 用常量时间比较；接口保持可调用，三个既有测试必须通过。不要改动 test/ 下的文件。",
+      "solution": {
+        "src/password.js": "import crypto from 'node:crypto';\n\n// 存储口令哈希：加盐慢哈希（scrypt），常量时间比较\nconst KEYLEN = 32;\n\nexport function hashPassword(plain, salt) {\n  const s = String(salt);\n  const derived = crypto.scryptSync(String(plain), s, KEYLEN);\n  return derived.toString('hex');\n}\n\nexport function verifyPassword(plain, salt, stored) {\n  const expected = Buffer.from(String(stored), 'hex');\n  const derived = crypto.scryptSync(String(plain), String(salt), KEYLEN);\n  if (expected.length !== derived.length) return false;\n  return crypto.timingSafeEqual(expected, derived);\n}\n",
+        "test/password.test.js": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { hashPassword, verifyPassword } from '../src/password.js';\n\ntest('同一口令与盐得到同一哈希', () => {\n  assert.equal(hashPassword('pw', 'salt'), hashPassword('pw', 'salt'));\n});\n\ntest('校验通过正确口令', () => {\n  const h = hashPassword('pw', 'salt');\n  assert.equal(verifyPassword('pw', 'salt', h), true);\n});\n\ntest('校验拒绝错误口令', () => {\n  const h = hashPassword('pw', 'salt');\n  assert.equal(verifyPassword('nope', 'salt', h), false);\n});\n"
+      },
+      "verify": {
+        "cmd": "node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "import fs from 'node:fs'; const src = fs.readFileSync('./src/password.js', 'utf8'); import('./src/password.js').then(m => { const { hashPassword, verifyPassword } = m; const h = hashPassword('pw', 'salt'); if (typeof h !== 'string' || !h.length) { console.error('hashPassword 应返回非空字符串'); process.exit(1); } if (h === hashPassword('pw', 'other-salt')) { console.error('盐没有起作用'); process.exit(1); } if (verifyPassword('pw', 'salt', h) !== true) { console.error('正确口令校验失败'); process.exit(1); } if (verifyPassword('nope', 'salt', h) !== false) { console.error('错误口令被接受'); process.exit(1); } const weak = /createHash\\(\\s*['\\\"]md5['\\\"]|createHash\\(\\s*['\\\"]sha1['\\\"]/; if (weak.test(src)) { console.error('仍在使用 MD5/SHA1 存储口令'); process.exit(1); } if (!/scrypt|pbkdf2/i.test(src)) { console.error('未改用 scrypt / pbkdf2 慢哈希'); process.exit(1); } if (!/timingSafeEqual/.test(src)) { console.error('比较未使用常量时间实现'); process.exit(1); } console.log('fail 0'); }).catch(e => { console.error(e.message); process.exit(1); });"
+        ],
+        "expectExit": 0,
+        "mustContain": "fail 0"
+      }
+    }
+  ]
+}
