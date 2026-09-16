@@ -11,7 +11,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test \"test/*.test.js\"",
+    "test": "node --test",
     "demo:doctor": "node src/cli.js doctor test/fixtures --no-defaults --json",
     "demo:report": "node src/cli.js report test/fixtures --no-defaults -o skillops-report.html",
     "demo:bench": "node src/cli.js bench test/fixtures --no-defaults --suite basic",
