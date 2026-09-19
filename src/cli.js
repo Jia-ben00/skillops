@@ -2,7 +2,6 @@
 // SkillOps CLI 入口
 import path from 'node:path';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { scanFromArgs, loadConfig } from './scanner.js';
 import { runAnalysis } from './analyzers/index.js';
 import { buildReport } from './report.js';
@@ -15,9 +14,7 @@ import { buildEvalReport } from './bench/eval/report.js';
 import { plan, execute } from './fix.js';
 import { startServer, setSkillsDir, setPort } from './server.js';
 import { estimateTokens } from './util.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
+import { VERSION } from './version.js';
 
 const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
 

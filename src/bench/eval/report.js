@@ -2,6 +2,7 @@
 //
 // 视觉风格与 src/report.js 保持一致，便于将来把 eval 维度融合进主报告。
 import { VERDICT_LABEL, verdictExplanation } from './runner.js';
+import { VERSION } from '../../version.js';
 
 const esc = (s) =>
   String(s ?? '')
@@ -174,7 +175,7 @@ export function buildEvalReport(result, opts = {}) {
     <div>
       <h1 style="font-size:22px;margin:0 0 4px;">${esc(title)}</h1>
       <div style="font-size:12px;color:#64748b;">
-        生成时间 ${esc(new Date(result.generatedAt).toLocaleString('zh-CN'))} · 工具 v${esc(opts.version || '0.5.0')} · 范围：${esc(opts.scope || '当前扫描范围')}
+        生成时间 ${esc(new Date(result.generatedAt).toLocaleString('zh-CN'))} · 工具 v${esc(opts.version || VERSION)} · 范围：${esc(opts.scope || '当前扫描范围')}
       </div>
       <div style="font-size:12px;color:#475569;margin-top:6px;">
         任务集 <strong>${esc(result.taskset.name)}</strong>（${result.taskset.taskCount} 个任务） ·

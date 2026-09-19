@@ -1,5 +1,6 @@
 // 可视化报告生成：自包含单文件 HTML（内联 CSS + SVG，无外部依赖，可离线打开）
 import { humanAge } from './util.js';
+import { VERSION } from './version.js';
 
 const esc = (s) =>
   String(s ?? '')
@@ -160,7 +161,7 @@ export function buildReport(analysis, opts = {}) {
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
     <div>
       <h1 style="font-size:22px;margin:0 0 4px;">${esc(title)}</h1>
-      <div style="font-size:12px;color:#64748b;">生成时间 ${esc(new Date(analysis.generatedAt).toLocaleString('zh-CN'))} · 工具 v${esc(opts.version || '0.5.0')} · 范围：${esc(scope)}</div>
+      <div style="font-size:12px;color:#64748b;">生成时间 ${esc(new Date(analysis.generatedAt).toLocaleString('zh-CN'))} · 工具 v${esc(opts.version || VERSION)} · 范围：${esc(scope)}</div>
     </div>
     ${gradeBadge(analysis.grade, analysis.score)}
   </div>

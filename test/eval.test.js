@@ -371,7 +371,7 @@ test('buildEvalReport：产出自包含 HTML，含关键结论且无外部依赖
   const ts = loadTaskSet('codegen-basic');
   const skill = fakeSkill('code-review', '代码审查', 'code-review diagnosing-bugs');
   const result = await runEval([skill], ts, { repeat: 2, threshold: 10 });
-  const html = buildEvalReport(result, { version: '0.5.0', scope: 'test/fixtures' });
+  const html = buildEvalReport(result, { version: '9.9.9', scope: 'test/fixtures' });
 
   assert.ok(html.startsWith('<!DOCTYPE html>'));
   assert.ok(html.includes('</html>'));

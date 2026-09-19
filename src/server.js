@@ -16,9 +16,9 @@ import { scanFromArgs, scanSmartDir, loadConfig } from './scanner.js';
 import { runAnalysis } from './analyzers/index.js';
 import { buildReport } from './report.js';
 import { plan as planFix, execute as executeFix } from './fix.js';
+import { VERSION } from './version.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = '0.5.0';
 const REPORT_DIR = path.resolve(process.env.SKILLOPS_REPORT_DIR || path.join(process.cwd(), 'reports'));
 // 端口与默认技能目录：CLI 可在运行时通过 setter 覆盖（模块加载时的 env 为兜底）
 let port = Number(process.env.PORT || 3000);

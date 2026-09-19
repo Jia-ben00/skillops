@@ -9,8 +9,8 @@ import { runAnalysis } from './analyzers/index.js';
 import { loadSuite } from './bench/suite.js';
 import { runSuite } from './bench/runner.js';
 import { buildReport } from './report.js';
+import { VERSION } from './version.js';
 
-const VERSION = '0.5.0';
 const NAME = 'skillops';
 
 const TOOLS = [
