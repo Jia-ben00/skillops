@@ -17,6 +17,8 @@ jobs:
         run: npm test
       - name: 一键安装脚本语法检查（install.sh）
         run: sh -n install.sh
+      - name: 安装脚本版本一致性检查（install.sh / install.ps1 默认版本 == package.json）
+        run: node scripts/check-install-version.mjs
       - name: 发布包构建自检（tgz/zip 结构）
         run: |
           node scripts/build-release.js

@@ -5,7 +5,7 @@
 # Options (env vars): SKILLOPS_VERSION, SKILLOPS_HOME, SKILLOPS_BIN
 set -e
 
-VERSION="${SKILLOPS_VERSION:-0.5.0}"
+VERSION="${SKILLOPS_VERSION:-0.6.0}"
 DEST="${SKILLOPS_HOME:-$HOME/.local/share/skillops-cli}"
 BIN="${SKILLOPS_BIN:-$HOME/.local/bin}"
 
