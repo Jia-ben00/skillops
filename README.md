@@ -1,5 +1,7 @@
 # SkillOps — AI 编程 Skill 的治理与评测平台
 
+> **在线报告**：<https://jia-ben00.github.io/skillops/> — 10 个真实技能体检 + 两套 A/B 对照实验（codegen / security）可视化报告，自包含 HTML，浏览器直接打开。
+
 > 装了一堆 Skill 之后，你知道哪些在每轮对话烧 token、哪些跟别的技能打架、哪些其实该删掉吗？
 > SkillOps 就是回答这个问题的地方：**体检 → 评测 → 可视化报告 → 一键治理**。
 
