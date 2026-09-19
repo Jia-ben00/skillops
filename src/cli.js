@@ -16,7 +16,8 @@ import { plan, execute } from './fix.js';
 import { startServer, setSkillsDir, setPort } from './server.js';
 import { estimateTokens } from './util.js';
 
-const VERSION = '0.5.0';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
 
 const HELP = `SkillOps v${VERSION} — AI 编程 Skill 的治理与评测平台
 

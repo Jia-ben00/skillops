@@ -1,5 +1,5 @@
-// 校验 install.sh / install.ps1 的默认版本与 package.json 一致。
-// 防止「改了 package.json 版本，但安装脚本还硬编码旧版本」的漂移回归。
+// 校验 install.sh / install.ps1 / src/cli.js 的版本与 package.json 一致。
+// 防止「改了 package.json 版本，但安装脚本或 CLI 还硬编码旧版本」的漂移回归。
 // 用法: node scripts/check-install-version.mjs   （不一致时退出码 1）
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,5 +31,12 @@ const check = (label, got) => {
 check('install.sh', shVer);
 check('install.ps1', ps1Ver);
 
+// src/cli.js：必须从 package.json 动态读取版本，禁止硬编码（防第三个漂移源）
+const cli = read('src/cli.js');
+if (/const VERSION\s*=\s*'[^']*'/.test(cli)) {
+  console.error('::error:: src/cli.js 硬编码了 VERSION 字符串，应从 package.json 动态读取');
+  fail = 1;
+}
+
 if (fail) process.exit(1);
-console.log(`install 脚本版本一致: ${want} ✓`);
+console.log(`版本一致: ${want} ✓ (install.sh / install.ps1 / cli.js)`);
