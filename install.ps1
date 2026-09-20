@@ -6,7 +6,7 @@
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$Version = if ($env:SKILLOPS_VERSION) { $env:SKILLOPS_VERSION } else { '0.6.1' }
+$Version = if ($env:SKILLOPS_VERSION) { $env:SKILLOPS_VERSION } else { '0.6.0' }
 $Dest    = if ($env:SKILLOPS_HOME)  { $env:SKILLOPS_HOME }  else { Join-Path $HOME '.skillops-cli' }
 $BinDir  = Join-Path $Dest 'bin'
 $PkgDir  = Join-Path $Dest 'package'
